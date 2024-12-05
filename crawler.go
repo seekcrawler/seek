@@ -1,6 +1,7 @@
 package kraken
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gozelle/logger"
 	"github.com/tebeka/selenium"
@@ -15,12 +16,14 @@ var log = logger.NewLogger("crawler")
 type RawUrl string
 
 type Conf struct {
-	debug                bool
-	pageExtractorFactory PageExtractorFactory
-	chromeArgs           []string
+	debug bool
+	//pageExtractorFactory PageExtractorFactory
+	chromeArgs     []string
+	router         *Router
+	defaultHandler HandlerFunc
 }
 
-type PageExtractorFactory func(u url.URL) *Extractor
+//type PageExtractorFactory func(u url.URL) *Extractor
 
 type Option func(c *Conf)
 
@@ -30,11 +33,23 @@ func WithChromeArgs(args []string) Option {
 	}
 }
 
-func WithPageExtractorFactory(f PageExtractorFactory) Option {
+func WithDefaultHandler(handler HandlerFunc) Option {
 	return func(c *Conf) {
-		c.pageExtractorFactory = f
+		c.defaultHandler = handler
 	}
 }
+
+func WithRouter(router *Router) Option {
+	return func(c *Conf) {
+		c.router = router
+	}
+}
+
+//func WithPageExtractorFactory(f PageExtractorFactory) Option {
+//	return func(c *Conf) {
+//		c.pageExtractorFactory = f
+//	}
+//}
 
 func Request(rawUrl string, options ...Option) error {
 	c := newCrawler()
@@ -63,19 +78,19 @@ func (c *crawler) close() {
 	close(c.done)
 }
 
-func (c *crawler) prepareExtractor(conf *Conf, u url.URL) (extractor *Extractor, err error) {
-
-	if conf.pageExtractorFactory == nil {
-		err = fmt.Errorf("page extractor fatory is not initialized")
-		return
-	}
-	extractor = conf.pageExtractorFactory(u)
-	if extractor == nil {
-		err = fmt.Errorf("new url: %s extractor is nil", u.String())
-		return
-	}
-	return
-}
+//func (c *crawler) prepareExtractor(conf *Conf, u url.URL) (extractor *Extractor, err error) {
+//
+//	if conf.pageExtractorFactory == nil {
+//		err = fmt.Errorf("page extractor fatory is not initialized")
+//		return
+//	}
+//	extractor = conf.pageExtractorFactory(u)
+//	if extractor == nil {
+//		err = fmt.Errorf("new url: %s extractor is nil", u.String())
+//		return
+//	}
+//	return
+//}
 
 func (c *crawler) defaultConf() *Conf {
 	return &Conf{
@@ -132,9 +147,6 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 
 	go c.exec(conf, wd)
 	go c.watchUrlChange(wd)
-	go func() {
-
-	}()
 
 	err = wd.Get(rawUrl)
 	if err != nil {
@@ -164,11 +176,12 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				c.done <- fmt.Errorf("parse url error: %w", err)
 				return
 			}
-			c.extractor, err = c.prepareExtractor(conf, *u)
-			if err != nil {
-				c.done <- fmt.Errorf("prepare url: %s extractor error: %w", visitUrl, err)
-				return
-			}
+			//c.extractor, err = c.prepareExtractor(conf, *u)
+			//if err != nil {
+			//	c.done <- fmt.Errorf("prepare url: %s extractor error: %w", visitUrl, err)
+			//	return
+			//}
+			c.extractor = NewExtractor()
 			initExtractor(c.extractor, wd, *u)
 			err = wd.Get(u.String())
 			if err != nil {
@@ -178,7 +191,28 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 			}
 
 			var status ExtractorStatus
-			status, err = c.extractor.Start()
+			ctx := &Context{
+				URL: *u,
+			}
+
+			if conf.router != nil {
+				err = conf.router.prepareContext(ctx, c.extractor)
+				if err != nil && !errors.Is(err, handlerNotFoundErr) {
+					c.done <- fmt.Errorf("prepare router error: %w", err)
+					return
+				}
+			}
+			if len(ctx.handlers) == 0 {
+				if conf.defaultHandler == nil {
+					c.done <- fmt.Errorf("no default handler")
+					return
+				} else {
+					ctx.Extractor = c.extractor
+					ctx.handlers = append(ctx.handlers, conf.defaultHandler)
+				}
+			}
+
+			status, err = c.extractor.Start(ctx)
 			if err != nil {
 				c.done <- err
 				return

@@ -9,19 +9,9 @@ import (
 
 func TestEngine(t *testing.T) {
 
-	engine := New()
+	engine := NewRouter()
 	engine.Handle("/hello", func(c *Context) {
 		fmt.Println("Hello world")
-	})
-
-	group := engine.Group("/shop", func(c *Context) {
-		fmt.Println("this form shop middleware before")
-		c.Next()
-		fmt.Println("this form shop middleware after")
-	})
-
-	group.Handle("/list/:name", func(c *Context) {
-		fmt.Println("this shop list", c.Params.ByName("name"))
 	})
 
 	engine.Handle("/user/:name", func(c *Context) {
@@ -35,7 +25,7 @@ func TestEngine(t *testing.T) {
 
 	{
 		u, _ := url.Parse("http://example.com/hello?name=123")
-		err := engine.handleHTTPRequest(&Context{
+		err := engine.handle(&Context{
 			URL: *u,
 		})
 		require.NoError(t, err)
@@ -43,14 +33,7 @@ func TestEngine(t *testing.T) {
 	}
 	{
 		u, _ := url.Parse("http://example.com/user/tom/123?name=123")
-		err := engine.handleHTTPRequest(&Context{
-			URL: *u,
-		})
-		require.NoError(t, err)
-	}
-	{
-		u, _ := url.Parse("http://example.com/shop/list/jack?name=123")
-		err := engine.handleHTTPRequest(&Context{
+		err := engine.handle(&Context{
 			URL: *u,
 		})
 		require.NoError(t, err)

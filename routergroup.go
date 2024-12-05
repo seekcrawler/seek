@@ -52,7 +52,7 @@ type IRoutes interface {
 type RouterGroup struct {
 	Handlers HandlersChain
 	basePath string
-	engine   *Engine
+	engine   *Router
 	root     bool
 }
 
@@ -63,22 +63,6 @@ type RouterGroup struct {
 //	group.Handlers = append(group.Handlers, middleware...)
 //	return group.returnObj()
 //}
-
-// Group creates a new router group. You should add all the routes that have common middlewares or the same path prefix.
-// For example, all the routes that use a common middleware for authorization could be grouped.
-func (group *RouterGroup) Group(relativePath string, handlers ...HandlerFunc) *RouterGroup {
-	return &RouterGroup{
-		Handlers: group.combineHandlers(handlers),
-		basePath: group.calculateAbsolutePath(relativePath),
-		engine:   group.engine,
-	}
-}
-
-// BasePath returns the base path of router group.
-// For example, if v := router.Group("/rest/n/v1/api"), v.BasePath() is "/rest/n/v1/api".
-func (group *RouterGroup) BasePath() string {
-	return group.basePath
-}
 
 func (group *RouterGroup) handle(relativePath string, handlers HandlersChain) IRoutes {
 	absolutePath := group.calculateAbsolutePath(relativePath)

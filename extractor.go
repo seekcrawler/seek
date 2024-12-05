@@ -22,6 +22,10 @@ var (
 	OtherElementHasBeenProcessedErr = errors.New("other elem has been processed")
 )
 
+var (
+	handlerNotFoundErr = errors.New("handler not found")
+)
+
 type ExtractorStatus int
 
 const (
@@ -50,34 +54,29 @@ func NewExtractor() *Extractor {
 
 type Extractor struct {
 	url     url.URL
-	err     chan error
-	timeout time.Duration
-	done    chan ExtractorStatus
 	wd      selenium.WebDriver
-	runners []Runner
-
 	hasDone atomic.Bool
+	errC    chan error
+	doneC   chan ExtractorStatus
 }
 
-func (p *Extractor) WebDriver() selenium.WebDriver {
-	return p.wd
-}
+//func (p *Extractor) WebDriver() selenium.WebDriver {
+//	return p.wd
+//}
 
-func (p *Extractor) Start() (status ExtractorStatus, err error) {
+func (p *Extractor) Start(ctx *Context) (status ExtractorStatus, err error) {
 	defer func() {
 		p.close()
 	}()
 
 	timeout := time.NewTimer(DefaultExtractorTimeout)
 
-	log.Infof("run extractor, url: %s runners: %d", p.url.String(), len(p.runners))
-	for _, v := range p.runners {
-		fn := v
-		go fn(p)
-	}
+	log.Infof("run extractor, url: %s handlers: %d", p.url.String(), len(ctx.handlers))
+
+	ctx.Next()
 
 	select {
-	case status = <-p.done:
+	case status = <-p.doneC:
 		return
 	case <-timeout.C:
 		err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
@@ -85,41 +84,37 @@ func (p *Extractor) Start() (status ExtractorStatus, err error) {
 	}
 }
 
-func (p *Extractor) Done() {
+func (p *Extractor) done() {
 	ok := p.hasDone.CompareAndSwap(false, true)
 	if ok {
-		p.done <- ExtractorDone
+		p.doneC <- ExtractorDone
 	}
 }
 
 func (p *Extractor) stop() {
 	ok := p.hasDone.CompareAndSwap(false, true)
 	if ok {
-		p.done <- ExtractorClose
+		p.doneC <- ExtractorClose
 	}
 }
 
 func initExtractor(extractor *Extractor, wd selenium.WebDriver, url url.URL) {
 	extractor.wd = wd
 	extractor.url = url
-	if extractor.done == nil {
-		extractor.done = make(chan ExtractorStatus)
+	if extractor.doneC == nil {
+		extractor.doneC = make(chan ExtractorStatus)
 	}
-	if extractor.err == nil {
-		extractor.err = make(chan error)
+	if extractor.errC == nil {
+		extractor.errC = make(chan error)
 	}
 }
 
 func (p *Extractor) close() {
 	log.Debugf("close extractor, url: %s", p.url.String())
-	close(p.done)
-	close(p.err)
+	close(p.doneC)
+	close(p.errC)
 }
 
-func (p *Extractor) Run(runner Runner) *Extractor {
-	p.runners = append(p.runners, runner)
-	return p
-}
 func (p *Extractor) FindElements(by By, selector string) Elements {
 	return p.WithTimoutFindElements(by, selector, DefaultExtractorTimeout)
 }

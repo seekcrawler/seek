@@ -1,15 +1,14 @@
 package kraken
 
 import (
-	"fmt"
 	"math"
 	"net/http"
 )
 
 const abortIndex int8 = math.MaxInt8 >> 1
 
-func New() *Engine {
-	engine := &Engine{
+func NewRouter() *Router {
+	engine := &Router{
 		RouterGroup: RouterGroup{
 			Handlers: nil,
 			basePath: "/",
@@ -24,7 +23,7 @@ func New() *Engine {
 	return engine
 }
 
-type Engine struct {
+type Router struct {
 	RouterGroup
 	trees              methodTrees
 	maxParams          uint16
@@ -34,7 +33,11 @@ type Engine struct {
 	RemoveExtraSlash   bool
 }
 
-func (engine *Engine) addRoute(path string, handlers HandlersChain) {
+func (engine *Router) Run() {
+
+}
+
+func (engine *Router) addRoute(path string, handlers HandlersChain) {
 	assert1(path[0] == '/', "path must begin with '/'")
 	assert1(len(handlers) > 0, "there must be at least one handler")
 
@@ -55,7 +58,7 @@ func (engine *Engine) addRoute(path string, handlers HandlersChain) {
 	}
 }
 
-func (engine *Engine) handleHTTPRequest(c *Context) (err error) {
+func (engine *Router) prepareContext(c *Context, extractor *Extractor) (err error) {
 	httpMethod := http.MethodGet
 	rPath := c.URL.Path
 	unescape := false
@@ -68,6 +71,7 @@ func (engine *Engine) handleHTTPRequest(c *Context) (err error) {
 	}
 
 	c.reset()
+	c.Extractor = extractor
 
 	// Find root of the tree for the given HTTP method
 	t := engine.trees
@@ -85,11 +89,19 @@ func (engine *Engine) handleHTTPRequest(c *Context) (err error) {
 		}
 		if value.handlers != nil {
 			c.handlers = value.handlers
-			c.Next()
 			return
 		}
 		break
 	}
-	err = fmt.Errorf("url: %s handler not found", c.URL.String())
+	err = handlerNotFoundErr
+	return
+}
+
+func (engine *Router) handle(c *Context) (err error) {
+	err = engine.prepareContext(c, nil)
+	if err != nil {
+		return
+	}
+	c.Next()
 	return
 }
