@@ -33,7 +33,7 @@ func (p Element) FindElement(by By, selector string, timeout ...time.Duration) E
 			err: p.err,
 		}
 	}
-	return p.extractor.findElement(p.elem, by, selector, sumTimeout(timeout))
+	return p.extractor.findElement(p.elem, by, selector, sumTimeDuration(timeout))
 }
 
 func (p Element) FindElements(by By, selector string, timeout ...time.Duration) Elements {
@@ -42,7 +42,7 @@ func (p Element) FindElements(by By, selector string, timeout ...time.Duration) 
 			err: p.err,
 		}
 	}
-	return p.extractor.findElements(p.elem, by, selector, sumTimeout(timeout))
+	return p.extractor.findElements(p.elem, by, selector, sumTimeDuration(timeout))
 }
 
 func (p Element) Input(val string) error {
@@ -111,10 +111,7 @@ func (p Element) ScrollHeight() (height int64, err error) {
 }
 
 func (p Element) WaitScrollHeightIncreased(previous int64, timeout ...time.Duration) error {
-	_timeout := sumTimeout(timeout)
-	if _timeout <= minExtractorTimeout {
-		_timeout = DefaultExtractorTimeout
-	}
+	_timeout := fixTimeDuration(sumTimeDuration(timeout))
 	start := time.Now()
 	for {
 		height, err := p.ScrollHeight()

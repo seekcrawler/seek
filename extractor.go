@@ -63,6 +63,11 @@ type Extractor struct {
 	doneC   chan ExtractorStatus
 }
 
+func (p *Extractor) Wait(t ...time.Duration) {
+	d := sumTimeDuration(t)
+	time.Sleep(fixTimeDuration(d))
+}
+
 func (p *Extractor) CurrentURL() *url.URL {
 	if p.wd != nil {
 		r, _ := p.wd.CurrentURL()
@@ -126,7 +131,7 @@ func (p *Extractor) close() {
 }
 
 func (p *Extractor) FindElements(by By, selector string, timeout ...time.Duration) Elements {
-	return p.findElements(nil, by, selector, sumTimeout(timeout))
+	return p.findElements(nil, by, selector, sumTimeDuration(timeout))
 }
 
 type iFindElements interface {
@@ -134,9 +139,7 @@ type iFindElements interface {
 }
 
 func (p *Extractor) findElements(parent iFindElements, by By, selector string, timeout time.Duration) Elements {
-	if timeout <= 0 {
-		timeout = minExtractorTimeout
-	}
+	timeout = fixTimeDuration(timeout)
 	start := time.Now()
 	if parent == nil {
 		parent = p.wd
@@ -180,7 +183,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 }
 
 func (p *Extractor) FindElement(by By, selector string, timeout ...time.Duration) Element {
-	return p.findElement(nil, by, selector, sumTimeout(timeout))
+	return p.findElement(nil, by, selector, sumTimeDuration(timeout))
 
 }
 
@@ -189,9 +192,7 @@ type iFindElement interface {
 }
 
 func (p *Extractor) findElement(parent iFindElement, by By, selector string, timeout time.Duration) Element {
-	if timeout <= minExtractorTimeout {
-		timeout = DefaultExtractorTimeout
-	}
+	timeout = fixTimeDuration(timeout)
 	start := time.Now()
 	if parent == nil {
 		parent = p.wd
@@ -244,10 +245,7 @@ func (p *Extractor) GetCookies() ([]selenium.Cookie, error) {
 }
 
 func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie selenium.Cookie, err error) {
-	_timeout := sumTimeout(timeout)
-	if _timeout <= minExtractorTimeout {
-		_timeout = DefaultExtractorTimeout
-	}
+	_timeout := fixTimeDuration(sumTimeDuration(timeout))
 	start := time.Now()
 	for {
 		cookie, err = p.wd.GetCookie(name)
