@@ -169,7 +169,7 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				return
 			}
 			c.extractor = NewExtractor()
-			initExtractor(c.extractor, wd, *u)
+			initExtractor(c.extractor, c.done, wd, *u)
 			err = wd.Get(u.String())
 			if err != nil {
 				log.Errorf("wd get url: %s error: %s", u, err)
@@ -177,7 +177,6 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				return
 			}
 
-			var status extractorStatus
 			ctx := &Context{
 				URL: *u,
 			}
@@ -199,14 +198,9 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 					ctx.handlers = append(ctx.handlers, conf.router.defaultHandler)
 				}
 			}
-			status, err = c.extractor.Start(ctx)
+			err = c.extractor.Start(ctx)
 			if err != nil {
 				c.done <- err
-				return
-			}
-			if status == extractorDone {
-				log.Infof("visit url: %s done", visitUrl)
-				c.done <- nil
 				return
 			}
 		}

@@ -20,9 +20,9 @@ var (
 const minExtractorTimeout = 1 * time.Second
 
 var (
-	ElementNotFoundErr              = errors.New("element not found")
-	OtherElementHasBeenProcessedErr = errors.New("other elem has been processed")
-	TimoutErr                       = errors.New("timeout")
+	ElementNotFoundErr  = errors.New("element not found")
+	ExtractorStoppedErr = errors.New("extractor has stopped")
+	TimoutErr           = errors.New("timeout")
 )
 
 var (
@@ -32,8 +32,7 @@ var (
 type extractorStatus int
 
 const (
-	extractorDone extractorStatus = iota
-	extractorStop
+	extractorStop extractorStatus = iota
 )
 
 type By string
@@ -56,12 +55,13 @@ func NewExtractor() *Extractor {
 }
 
 type Extractor struct {
-	url      url.URL
-	wd       selenium.WebDriver
-	hasEnd   atomic.Bool
-	hasClose atomic.Bool
-	errC     chan error
-	doneC    chan extractorStatus
+	url         url.URL
+	wd          selenium.WebDriver
+	hasEnd      atomic.Bool
+	hasClose    atomic.Bool
+	errC        chan error
+	stopC       chan struct{}
+	crawlerDone chan error
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -80,7 +80,7 @@ func (p *Extractor) CurrentURL() *url.URL {
 	return &url.URL{}
 }
 
-func (p *Extractor) Start(ctx *Context) (status extractorStatus, err error) {
+func (p *Extractor) Start(ctx *Context) (err error) {
 	defer func() {
 		p.close()
 	}()
@@ -92,7 +92,7 @@ func (p *Extractor) Start(ctx *Context) (status extractorStatus, err error) {
 	go ctx.Next()
 
 	select {
-	case status = <-p.doneC:
+	case <-p.stopC:
 		return
 	case <-timeout.C:
 		err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
@@ -101,24 +101,22 @@ func (p *Extractor) Start(ctx *Context) (status extractorStatus, err error) {
 }
 
 func (p *Extractor) done() {
-	ok := p.hasEnd.CompareAndSwap(false, true)
-	if ok && !p.hasClose.Load() {
-		p.doneC <- extractorDone
-	}
+	p.crawlerDone <- nil
 }
 
 func (p *Extractor) stop() {
 	ok := p.hasEnd.CompareAndSwap(false, true)
 	if ok && !p.hasClose.Load() {
-		p.doneC <- extractorStop
+		p.stopC <- struct{}{}
 	}
 }
 
-func initExtractor(extractor *Extractor, wd selenium.WebDriver, url url.URL) {
+func initExtractor(extractor *Extractor, done chan error, wd selenium.WebDriver, url url.URL) {
+	extractor.crawlerDone = done
 	extractor.wd = wd
 	extractor.url = url
-	if extractor.doneC == nil {
-		extractor.doneC = make(chan extractorStatus)
+	if extractor.stopC == nil {
+		extractor.stopC = make(chan struct{})
 	}
 	if extractor.errC == nil {
 		extractor.errC = make(chan error)
@@ -128,7 +126,7 @@ func initExtractor(extractor *Extractor, wd selenium.WebDriver, url url.URL) {
 func (p *Extractor) close() {
 	log.Debugf("close extractor, url: %s", p.url.String())
 	if p.hasClose.CompareAndSwap(false, true) {
-		close(p.doneC)
+		close(p.stopC)
 		close(p.errC)
 	}
 }
@@ -151,7 +149,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 		if p.hasEnd.Load() {
 			log.Infof("cancel find elements, by: %s selector: %s", by, selector)
 			return Elements{
-				err: OtherElementHasBeenProcessedErr,
+				err: ExtractorStoppedErr,
 			}
 		}
 		results, err := parent.FindElements(string(by), selector)
@@ -204,7 +202,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 		if p.hasEnd.Load() {
 			log.Infof("cancel find element, by: %s selector: %s", by, selector)
 			return Element{
-				err: OtherElementHasBeenProcessedErr,
+				err: ExtractorStoppedErr,
 			}
 		}
 		elem, err := parent.FindElement(string(by), selector)
