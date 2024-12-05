@@ -56,11 +56,12 @@ func NewExtractor() *Extractor {
 }
 
 type Extractor struct {
-	url    url.URL
-	wd     selenium.WebDriver
-	hasEnd atomic.Bool
-	errC   chan error
-	doneC  chan extractorStatus
+	url      url.URL
+	wd       selenium.WebDriver
+	hasEnd   atomic.Bool
+	hasClose atomic.Bool
+	errC     chan error
+	doneC    chan extractorStatus
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -101,14 +102,14 @@ func (p *Extractor) Start(ctx *Context) (status extractorStatus, err error) {
 
 func (p *Extractor) done() {
 	ok := p.hasEnd.CompareAndSwap(false, true)
-	if ok {
+	if ok && !p.hasClose.Load() {
 		p.doneC <- extractorDone
 	}
 }
 
 func (p *Extractor) stop() {
 	ok := p.hasEnd.CompareAndSwap(false, true)
-	if ok {
+	if ok && !p.hasClose.Load() {
 		p.doneC <- extractorStop
 	}
 }
@@ -126,8 +127,10 @@ func initExtractor(extractor *Extractor, wd selenium.WebDriver, url url.URL) {
 
 func (p *Extractor) close() {
 	log.Debugf("close extractor, url: %s", p.url.String())
-	close(p.doneC)
-	close(p.errC)
+	if p.hasClose.CompareAndSwap(false, true) {
+		close(p.doneC)
+		close(p.errC)
+	}
 }
 
 func (p *Extractor) FindElements(by By, selector string, timeout ...time.Duration) Elements {
