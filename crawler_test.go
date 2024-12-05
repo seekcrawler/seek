@@ -339,7 +339,7 @@ func UserHome(c *kraken.Context) {
 		return true
 	})
 
-	body, err := c.Extractor.FindElement(kraken.ByTagName, "body").Elem()
+	body, err := c.Extractor.FindElement(kraken.ByTagName, "body").Valid()
 	if err != nil {
 		return
 	}
