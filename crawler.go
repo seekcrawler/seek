@@ -160,7 +160,7 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 		select {
 		case visitUrl, ok := <-c.visitUrl:
 			if !ok {
-				log.Infof("exist crawler exec, url: %s", visitUrl)
+				log.Infof("exist crawler exector")
 				return
 			}
 			u, err := url.Parse(string(visitUrl))
