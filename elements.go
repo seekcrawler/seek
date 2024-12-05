@@ -24,7 +24,7 @@ func (e Elements) Len() int {
 	return len(e.elems)
 }
 
-func (e Elements) FindElementByTexts(compare func(text string) bool) (elem Element, err error) {
+func (e Elements) FindElementByText(compare func(text string) bool) (elem Element, err error) {
 	if e.err != nil {
 		err = e.err
 		return
