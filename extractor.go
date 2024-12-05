@@ -1,6 +1,7 @@
 package kraken
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tebeka/selenium"
@@ -235,4 +236,42 @@ func (p *Extractor) ScrollBodyTop() error {
 func (p *Extractor) ScrollBodyBottom() error {
 	_, err := p.wd.ExecuteScript(`window.scrollTo({top:document.body.scrollHeight,left:0,behavior:"smooth"});`, nil)
 	return err
+}
+
+func (p *Extractor) GetCookies() ([]selenium.Cookie, error) {
+	return p.wd.GetCookies()
+}
+
+func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie selenium.Cookie, err error) {
+	_timeout := sumTimeout(timeout)
+	if _timeout <= minExtractorTimeout {
+		_timeout = DefaultExtractorTimeout
+	}
+	start := time.Now()
+	for {
+		cookie, err = p.wd.GetCookie(name)
+		if err == nil {
+			return
+		}
+		if time.Since(start) > _timeout {
+			err = TimoutErr
+			return
+		}
+		time.Sleep(CheckElementInterval)
+	}
+}
+
+func (p *Extractor) LoadCookies(cookies []selenium.Cookie) error {
+	for _, v := range cookies {
+		err := p.wd.AddCookie(&v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Extractor) ParseCookiesJson(content []byte) (cookies []selenium.Cookie, err error) {
+	err = json.Unmarshal(content, &cookies)
+	return
 }

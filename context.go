@@ -5,12 +5,12 @@ import (
 )
 
 type Context struct {
-	URL       url.URL
-	Params    Params
-	Extractor *Extractor
-	handlers  HandlersChain
-	index     int8
-	abort     func() bool
+	*Extractor
+	URL      url.URL
+	Params   Params
+	handlers HandlersChain
+	index    int8
+	abort    func() bool
 }
 
 func (c *Context) Abort(fn func() bool) {
