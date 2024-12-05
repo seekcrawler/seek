@@ -52,7 +52,7 @@ func (p Element) Input(val string) error {
 	return p.elem.SendKeys(val)
 }
 
-func (p Element) Element() (Element, error) {
+func (p Element) Elem() (Element, error) {
 	return p, p.err
 }
 
