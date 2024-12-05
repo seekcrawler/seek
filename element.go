@@ -103,3 +103,17 @@ func (p Element) MouseOut() (err error) {
 	}
 	return
 }
+
+func (p Element) ScrollTop() {
+
+}
+
+func (p Element) ScrollBottom() {
+	/*
+		window.scrollTo({
+		  top: document.body.scrollHeight,
+		  left: 0,
+		  behavior: "smooth",
+		});
+	*/
+}

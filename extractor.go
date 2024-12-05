@@ -63,6 +63,42 @@ func (p *Extractor) WebDriver() selenium.WebDriver {
 	return p.wd
 }
 
+func (p *Extractor) Start() (status ExtractorStatus, err error) {
+	defer func() {
+		p.close()
+	}()
+
+	timeout := time.NewTimer(DefaultExtractorTimeout)
+
+	log.Infof("run extractor, url: %s runners: %d", p.url.String(), len(p.runners))
+	for _, v := range p.runners {
+		fn := v
+		go fn(p)
+	}
+
+	select {
+	case status = <-p.done:
+		return
+	case <-timeout.C:
+		err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
+		return
+	}
+}
+
+func (p *Extractor) Done() {
+	ok := p.hasDone.CompareAndSwap(false, true)
+	if ok {
+		p.done <- ExtractorDone
+	}
+}
+
+func (p *Extractor) stop() {
+	ok := p.hasDone.CompareAndSwap(false, true)
+	if ok {
+		p.done <- ExtractorClose
+	}
+}
+
 func initExtractor(extractor *Extractor, wd selenium.WebDriver, url url.URL) {
 	extractor.wd = wd
 	extractor.url = url
@@ -202,38 +238,21 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 	}
 }
 
-func (p *Extractor) Start() (status ExtractorStatus, err error) {
-	defer func() {
-		p.close()
-	}()
+func (p *Extractor) ScrollBodyTop() {
 
-	timeout := time.NewTimer(DefaultExtractorTimeout)
-
-	log.Infof("run extractor, url: %s runners: %d", p.url.String(), len(p.runners))
-	for _, v := range p.runners {
-		fn := v
-		go fn(p)
-	}
-
-	select {
-	case status = <-p.done:
-		return
-	case <-timeout.C:
-		err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
-		return
-	}
 }
 
-func (p *Extractor) Done() {
-	ok := p.hasDone.CompareAndSwap(false, true)
-	if ok {
-		p.done <- ExtractorDone
-	}
+func (p *Extractor) ScrollBodyBottom() {
+	/*
+		window.scrollTo({
+		  top: document.body.scrollHeight,
+		  left: 0,
+		  behavior: "smooth",
+		});
+	*/
 }
 
-func (p *Extractor) stop() {
-	ok := p.hasDone.CompareAndSwap(false, true)
-	if ok {
-		p.done <- ExtractorClose
-	}
+func (p *Extractor) WaitBodyScrollHeightChange(timeout ...time.Duration) (changed bool, err error) {
+
+	return
 }
