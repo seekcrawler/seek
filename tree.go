@@ -425,6 +425,9 @@ type skippedNode struct {
 // made if a handle exists with an extra (without the) trailing slash for the
 // given path.
 func (n *node) getValue(path string, params *Params, skippedNodes *[]skippedNode, unescape bool) (value nodeValue) {
+	defer func() {
+		recover()
+	}()
 	var globalParamsCount int16
 
 walk: // Outer loop for walking the tree

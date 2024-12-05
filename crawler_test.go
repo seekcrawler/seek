@@ -284,11 +284,23 @@ func TestCrawler(t *testing.T) {
 
 	kraken.DriverPath = dp
 
-	router := kraken.NewRouter()
+	router := kraken.NewRouter(DefaultHandler)
 
-	router.Handle("/i/flow/login", Login)
-	router.Handle("/:username", UserHome)
-	router.Handle("/:username/following", UserFollowing)
+	//router.Handle("/i/flow/login", Login)
+	group := router.Group("/i", func(c *kraken.Context) {
+		fmt.Println("this is i")
+		c.Next()
+		fmt.Println("this is ii")
+	})
+	group.Use(func(c *kraken.Context) {
+		fmt.Println("mid1")
+		c.Next()
+		fmt.Println("mid2")
+	})
+	group.Handle("/flow/login", Login)
+
+	//router.Handle("/:username", UserHome)
+	//router.Handle("/:username/following", UserFollowing)
 
 	err = kraken.Request("https://x.com/elonmusk",
 		kraken.WithChromeArgs([]string{
@@ -300,15 +312,16 @@ func TestCrawler(t *testing.T) {
 			//"--high-dpi-support=1.0",        // 避免在Linux环境下出现错误，可选
 			//"--disable-dev-shm-usage",       // 避免在Linux环境下出现错误，可选
 		}),
-		kraken.WithDefaultHandler(DefaultHandle),
 		kraken.WithRouter(router),
 	)
 
 	require.NoError(t, err)
 }
 
-func DefaultHandle(c *kraken.Context) {
+func DefaultHandler(c *kraken.Context) {
 	fmt.Println("this is default")
+
+	time.Sleep(time.Hour)
 }
 
 func Login(c *kraken.Context) {
@@ -357,8 +370,6 @@ func UserHome(c *kraken.Context) {
 	}
 
 	time.Sleep(5 * time.Second)
-
-	c.Done()
 }
 
 func UserFollowing(c *kraken.Context) {

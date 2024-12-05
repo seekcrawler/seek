@@ -7,7 +7,7 @@ import (
 
 const abortIndex int8 = math.MaxInt8 >> 1
 
-func NewRouter() *Router {
+func NewRouter(defaultHandler HandlerFunc) *Router {
 	engine := &Router{
 		RouterGroup: RouterGroup{
 			Handlers: nil,
@@ -18,6 +18,7 @@ func NewRouter() *Router {
 		UseRawPath:         false,
 		UnescapePathValues: true,
 		RemoveExtraSlash:   false,
+		defaultHandler:     defaultHandler,
 	}
 	engine.RouterGroup.engine = engine
 	return engine
@@ -31,10 +32,7 @@ type Router struct {
 	UseRawPath         bool
 	UnescapePathValues bool
 	RemoveExtraSlash   bool
-}
-
-func (engine *Router) Run() {
-
+	defaultHandler     HandlerFunc
 }
 
 func (engine *Router) addRoute(path string, handlers HandlersChain) {

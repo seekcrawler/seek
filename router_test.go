@@ -5,13 +5,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"net/url"
 	"testing"
+	"time"
 )
 
 func TestEngine(t *testing.T) {
 
-	engine := NewRouter()
+	engine := NewRouter(func(c *Context) {})
+
 	engine.Handle("/hello", func(c *Context) {
 		fmt.Println("Hello world")
+	})
+
+	group := engine.Group("/hello")
+	group.Handle("/sub", func(context *Context) {
+		fmt.Println("sub handler")
 	})
 
 	engine.Handle("/user/:name", func(c *Context) {
@@ -38,4 +45,14 @@ func TestEngine(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
+
+	{
+		u, _ := url.Parse("http://example.com/hello/sub?name=123")
+		err := engine.handle(&Context{
+			URL: *u,
+		})
+		require.NoError(t, err)
+	}
+
+	time.Sleep(3 * time.Second)
 }

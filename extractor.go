@@ -81,7 +81,7 @@ func (p *Extractor) Start(ctx *Context) (status ExtractorStatus, err error) {
 
 	log.Infof("run extractor, url: %s handlers: %d", p.url.String(), len(ctx.handlers))
 
-	ctx.Next()
+	go ctx.Next()
 
 	select {
 	case status = <-p.doneC:

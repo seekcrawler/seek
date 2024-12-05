@@ -18,9 +18,8 @@ type RawUrl string
 type Conf struct {
 	debug bool
 	//pageExtractorFactory PageExtractorFactory
-	chromeArgs     []string
-	router         *Router
-	defaultHandler HandlerFunc
+	chromeArgs []string
+	router     *Router
 }
 
 //type PageExtractorFactory func(u url.URL) *Extractor
@@ -30,12 +29,6 @@ type Option func(c *Conf)
 func WithChromeArgs(args []string) Option {
 	return func(c *Conf) {
 		c.chromeArgs = args
-	}
-}
-
-func WithDefaultHandler(handler HandlerFunc) Option {
-	return func(c *Conf) {
-		c.defaultHandler = handler
 	}
 }
 
@@ -175,11 +168,6 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				c.done <- fmt.Errorf("parse url error: %w", err)
 				return
 			}
-			//c.extractor, err = c.prepareExtractor(conf, *u)
-			//if err != nil {
-			//	c.done <- fmt.Errorf("prepare url: %s extractor error: %w", visitUrl, err)
-			//	return
-			//}
 			c.extractor = NewExtractor()
 			initExtractor(c.extractor, wd, *u)
 			err = wd.Get(u.String())
@@ -193,24 +181,24 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 			ctx := &Context{
 				URL: *u,
 			}
-
-			if conf.router != nil {
-				err = conf.router.prepareContext(ctx, c.extractor)
-				if err != nil && !errors.Is(err, handlerNotFoundErr) {
-					c.done <- fmt.Errorf("prepare router error: %w", err)
-					return
-				}
+			if conf.router == nil {
+				c.done <- fmt.Errorf("router is nil")
+				return
+			}
+			err = conf.router.prepareContext(ctx, c.extractor)
+			if err != nil && !errors.Is(err, handlerNotFoundErr) {
+				c.done <- fmt.Errorf("prepare router error: %w", err)
+				return
 			}
 			if len(ctx.handlers) == 0 {
-				if conf.defaultHandler == nil {
+				if conf.router.defaultHandler == nil {
 					c.done <- fmt.Errorf("no default handler")
 					return
 				} else {
 					ctx.Extractor = c.extractor
-					ctx.handlers = append(ctx.handlers, conf.defaultHandler)
+					ctx.handlers = append(ctx.handlers, conf.router.defaultHandler)
 				}
 			}
-
 			status, err = c.extractor.Start(ctx)
 			if err != nil {
 				c.done <- err
@@ -233,11 +221,10 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 	for {
 		select {
 		default:
-			newUrl, err := wd.CurrentURL()
-			if err != nil {
-				log.Errorf("get current url error: %s", err)
+			if wd == nil {
 				return
 			}
+			newUrl, _ := wd.CurrentURL()
 			if newUrl == "" {
 				log.Debugf("close url watcher")
 				return
