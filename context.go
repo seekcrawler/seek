@@ -10,11 +10,11 @@ type Context struct {
 	Extractor *Extractor
 	handlers  HandlersChain
 	index     int8
-	check     func() bool
+	abort     func() bool
 }
 
-func (c *Context) Check(check func() bool) {
-	c.check = check
+func (c *Context) Abort(fn func() bool) {
+	c.abort = fn
 }
 
 func (c *Context) reset() {
@@ -37,11 +37,11 @@ func (c *Context) Next() {
 	for c.index < int8(len(c.handlers)) {
 		if c.handlers[c.index] != nil {
 			index := c.index
-			exec := true
-			if c.check != nil {
-				exec = c.check()
+			abort := false
+			if c.abort != nil {
+				abort = c.abort()
 			}
-			if !exec {
+			if abort {
 				c.done()
 			} else {
 				c.handlers[index](c)

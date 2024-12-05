@@ -330,7 +330,7 @@ func Login(c *kraken.Context) {
 
 func UserHome(c *kraken.Context) {
 	fmt.Println("this is user home")
-	c.Check(func() bool {
+	c.Abort(func() bool {
 		time.Sleep(5 * time.Second)
 		if c.URL.String() != c.Extractor.CurrentURL().String() {
 			fmt.Println("this is user home, url redirect")
