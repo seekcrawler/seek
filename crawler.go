@@ -214,6 +214,14 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 
 }
 
+func (c *crawler) currentUrl(wd selenium.WebDriver) string {
+	defer func() {
+		recover()
+	}()
+	v, _ := wd.CurrentURL()
+	return v
+}
+
 func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 	var currentUrl string
 	pollInterval := 5 * time.Millisecond
@@ -221,10 +229,7 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 	for {
 		select {
 		default:
-			if wd == nil {
-				return
-			}
-			newUrl, _ := wd.CurrentURL()
+			newUrl := c.currentUrl(wd)
 			if newUrl == "" {
 				log.Debugf("close url watcher")
 				return
