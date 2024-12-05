@@ -29,11 +29,11 @@ var (
 	handlerNotFoundErr = errors.New("handler not found")
 )
 
-type ExtractorStatus int
+type extractorStatus int
 
 const (
-	ExtractorDone ExtractorStatus = iota
-	ExtractorClose
+	extractorDone extractorStatus = iota
+	extractorStop
 )
 
 type By string
@@ -60,7 +60,7 @@ type Extractor struct {
 	wd      selenium.WebDriver
 	hasDone atomic.Bool
 	errC    chan error
-	doneC   chan ExtractorStatus
+	doneC   chan extractorStatus
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -79,7 +79,7 @@ func (p *Extractor) CurrentURL() *url.URL {
 	return &url.URL{}
 }
 
-func (p *Extractor) Start(ctx *Context) (status ExtractorStatus, err error) {
+func (p *Extractor) Start(ctx *Context) (status extractorStatus, err error) {
 	defer func() {
 		p.close()
 	}()
@@ -102,14 +102,14 @@ func (p *Extractor) Start(ctx *Context) (status ExtractorStatus, err error) {
 func (p *Extractor) done() {
 	ok := p.hasDone.CompareAndSwap(false, true)
 	if ok {
-		p.doneC <- ExtractorDone
+		p.doneC <- extractorDone
 	}
 }
 
 func (p *Extractor) stop() {
 	ok := p.hasDone.CompareAndSwap(false, true)
 	if ok {
-		p.doneC <- ExtractorClose
+		p.doneC <- extractorStop
 	}
 }
 
@@ -117,7 +117,7 @@ func initExtractor(extractor *Extractor, wd selenium.WebDriver, url url.URL) {
 	extractor.wd = wd
 	extractor.url = url
 	if extractor.doneC == nil {
-		extractor.doneC = make(chan ExtractorStatus)
+		extractor.doneC = make(chan extractorStatus)
 	}
 	if extractor.errC == nil {
 		extractor.errC = make(chan error)

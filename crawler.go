@@ -177,7 +177,7 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				return
 			}
 
-			var status ExtractorStatus
+			var status extractorStatus
 			ctx := &Context{
 				URL: *u,
 			}
@@ -204,7 +204,7 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				c.done <- err
 				return
 			}
-			if status == ExtractorDone {
+			if status == extractorDone {
 				log.Infof("visit url: %s done", visitUrl)
 				c.done <- nil
 				return
