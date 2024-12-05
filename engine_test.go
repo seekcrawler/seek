@@ -10,19 +10,27 @@ import (
 func TestEngine(t *testing.T) {
 
 	engine := New()
-	engine.Handle("/hello", func(c *Context) error {
+	engine.Handle("/hello", func(c *Context) {
 		fmt.Println("Hello world")
-		return nil
 	})
-	engine.Handle("/user/:name", func(c *Context) error {
+
+	group := engine.Group("/shop", func(c *Context) {
+		fmt.Println("this form shop middleware before")
+		c.Next()
+		fmt.Println("this form shop middleware after")
+	})
+
+	group.Handle("/list/:name", func(c *Context) {
+		fmt.Println("this shop list", c.Params.ByName("name"))
+	})
+
+	engine.Handle("/user/:name", func(c *Context) {
 		fmt.Println(c.Params)
 		fmt.Println("Hello user")
-		return nil
 	})
-	engine.Handle("/user/:name/:id", func(c *Context) error {
+	engine.Handle("/user/:name/:id", func(c *Context) {
 		fmt.Println(c.Params)
 		fmt.Println("Hello user id")
-		return nil
 	})
 
 	{
@@ -40,5 +48,11 @@ func TestEngine(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
-
+	{
+		u, _ := url.Parse("http://example.com/shop/list/jack?name=123")
+		err := engine.handleHTTPRequest(&Context{
+			URL: *u,
+		})
+		require.NoError(t, err)
+	}
 }

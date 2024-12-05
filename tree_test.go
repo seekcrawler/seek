@@ -16,9 +16,8 @@ import (
 var fakeHandlerValue string
 
 func fakeHandler(val string) HandlersChain {
-	return HandlersChain{func(c *Context) error {
+	return HandlersChain{func(c *Context) {
 		fakeHandlerValue = val
-		return nil
 	}}
 }
 

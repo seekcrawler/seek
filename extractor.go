@@ -238,21 +238,16 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 	}
 }
 
-func (p *Extractor) ScrollBodyTop() {
-
+func (p *Extractor) ScrollBodyTop() error {
+	_, err := p.wd.ExecuteScript(`window.scrollTo({top:0,left:0,behavior:"smooth"});`, nil)
+	return err
 }
 
-func (p *Extractor) ScrollBodyBottom() {
-	/*
-		window.scrollTo({
-		  top: document.body.scrollHeight,
-		  left: 0,
-		  behavior: "smooth",
-		});
-	*/
+func (p *Extractor) ScrollBodyBottom() error {
+	_, err := p.wd.ExecuteScript(`window.scrollTo({top:document.body.scrollHeight,left:0,behavior:"smooth"});`, nil)
+	return err
 }
 
 func (p *Extractor) WaitBodyScrollHeightChange(timeout ...time.Duration) (changed bool, err error) {
-
 	return
 }

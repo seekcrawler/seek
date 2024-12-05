@@ -67,6 +67,8 @@ func (engine *Engine) handleHTTPRequest(c *Context) (err error) {
 		rPath = cleanPath(rPath)
 	}
 
+	c.reset()
+
 	// Find root of the tree for the given HTTP method
 	t := engine.trees
 	for i, tl := 0, len(t); i < tl; i++ {
@@ -83,13 +85,7 @@ func (engine *Engine) handleHTTPRequest(c *Context) (err error) {
 		}
 		if value.handlers != nil {
 			c.handlers = value.handlers
-			c.fullPath = value.fullPath
-			for _, handler := range value.handlers {
-				err = handler(c)
-				if err != nil {
-					return
-				}
-			}
+			c.Next()
 			return
 		}
 		break
