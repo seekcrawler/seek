@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/tebeka/selenium"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -261,7 +262,11 @@ func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie sel
 	}
 }
 
-func (p *Extractor) LoadCookies(cookies []selenium.Cookie) error {
+func (p *Extractor) AddCoolie(cookie selenium.Cookie) error {
+	return p.wd.AddCookie(&cookie)
+}
+
+func (p *Extractor) AddCookies(cookies []selenium.Cookie) error {
 	for _, v := range cookies {
 		err := p.wd.AddCookie(&v)
 		if err != nil {
@@ -274,4 +279,19 @@ func (p *Extractor) LoadCookies(cookies []selenium.Cookie) error {
 func (p *Extractor) ParseCookiesJson(content []byte) (cookies []selenium.Cookie, err error) {
 	err = json.Unmarshal(content, &cookies)
 	return
+}
+
+func (p *Extractor) Refresh() error {
+	return p.wd.Refresh()
+}
+
+func (p *Extractor) Redirect(path string) error {
+	if strings.HasPrefix(path, "http") {
+		return p.wd.Get(path)
+	}
+	port := p.url.Port()
+	if port != "" {
+		port = fmt.Sprintf(":%s", port)
+	}
+	return p.wd.Get(fmt.Sprintf("%s://%s%s%s", p.url.Scheme, p.url.Hostname(), port, path))
 }

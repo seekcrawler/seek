@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+func TestURL(t *testing.T) {
+	u, _ := url.Parse("http://example.com:80/user/tom/123?name=123")
+	t.Log(u.Scheme)
+	t.Log(u.Hostname())
+	t.Log(u.Port())
+}
+
 func TestEngine(t *testing.T) {
 
 	engine := NewRouter(func(c *Context) {})
