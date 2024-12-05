@@ -15,11 +15,12 @@ var (
 	CheckElementInterval    = 100 * time.Millisecond
 )
 
-const minExtractorTimeout = 10 * time.Second
+const minExtractorTimeout = 1 * time.Second
 
 var (
 	ElementNotFoundErr              = errors.New("element not found")
 	OtherElementHasBeenProcessedErr = errors.New("other elem has been processed")
+	TimoutErr                       = errors.New("timeout")
 )
 
 var (
@@ -60,9 +61,16 @@ type Extractor struct {
 	doneC   chan ExtractorStatus
 }
 
-//func (p *Extractor) WebDriver() selenium.WebDriver {
-//	return p.wd
-//}
+func (p *Extractor) CurrentURL() *url.URL {
+	if p.wd != nil {
+		r, _ := p.wd.CurrentURL()
+		u, err := url.Parse(r)
+		if err == nil {
+			return u
+		}
+	}
+	return &url.URL{}
+}
 
 func (p *Extractor) Start(ctx *Context) (status ExtractorStatus, err error) {
 	defer func() {
@@ -115,13 +123,8 @@ func (p *Extractor) close() {
 	close(p.errC)
 }
 
-func (p *Extractor) FindElements(by By, selector string) Elements {
-	return p.WithTimoutFindElements(by, selector, DefaultExtractorTimeout)
-}
-
-func (p *Extractor) WithTimoutFindElements(by By, selector string, timeout time.Duration) Elements {
-
-	return p.findElements(nil, by, selector, timeout)
+func (p *Extractor) FindElements(by By, selector string, timeout ...time.Duration) Elements {
+	return p.findElements(nil, by, selector, sumTimeout(timeout))
 }
 
 type iFindElements interface {
@@ -138,7 +141,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 	}
 	for {
 		if p.hasDone.Load() {
-			log.Infof("cancel find elements, selector: %s %s", by, selector)
+			log.Infof("cancel find elements, by: %s selector: %s", by, selector)
 			return Elements{
 				err: OtherElementHasBeenProcessedErr,
 			}
@@ -146,13 +149,10 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 		results, err := parent.FindElements(string(by), selector)
 		if err == nil {
 			if len(results) > 0 {
-				log.Debugf("find elements success, selector: %s %s, count: %d", by, selector, len(results))
+				log.Debugf("find elements success, by: %s selector: %s, count: %d", by, selector, len(results))
 				var elems []Element
 				for _, elem := range results {
-					elems = append(elems, Element{
-						wd:   p.wd,
-						elem: elem,
-					})
+					elems = append(elems, newElement(p.wd, elem, p))
 				}
 				if !p.hasDone.Load() {
 					return Elements{
@@ -160,7 +160,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 						elems: elems,
 					}
 				} else {
-					log.Infof("ignore to find elemets: selector: %s %s", by, selector)
+					log.Infof("ignore to find elemets: by: %s selector: %s", by, selector)
 					return Elements{
 						err: ElementNotFoundErr,
 					}
@@ -168,7 +168,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 			}
 		}
 		if time.Since(start) > timeout {
-			log.Warnf("find elementos failed, selector: %s %s", by, selector)
+			log.Warnf("find elementos failed, by: %s selector: %s", by, selector)
 			return Elements{
 				err: ElementNotFoundErr,
 			}
@@ -177,12 +177,9 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 	}
 }
 
-func (p *Extractor) FindElement(by By, selector string) Element {
-	return p.WithTimoutFindElement(by, selector, DefaultExtractorTimeout)
-}
+func (p *Extractor) FindElement(by By, selector string, timeout ...time.Duration) Element {
+	return p.findElement(nil, by, selector, sumTimeout(timeout))
 
-func (p *Extractor) WithTimoutFindElement(by By, selector string, timeout time.Duration) Element {
-	return p.findElement(nil, by, selector, timeout)
 }
 
 type iFindElement interface {
@@ -199,7 +196,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 	}
 	for {
 		if p.hasDone.Load() {
-			log.Infof("cancel find element, selector: %s %s", by, selector)
+			log.Infof("cancel find element, by: %s selector: %s", by, selector)
 			return Element{
 				err: OtherElementHasBeenProcessedErr,
 			}
@@ -209,14 +206,11 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 			var isDisplayed bool
 			isDisplayed, err = elem.IsDisplayed()
 			if err == nil && isDisplayed {
-				log.Debugf("find element success, selector: %s %s", by, selector)
+				log.Debugf("find element success, by: %s selector: %s", by, selector)
 				if !p.hasDone.Load() {
-					return Element{
-						elem: elem,
-						wd:   p.wd,
-					}
+					return newElement(p.wd, elem, p)
 				} else {
-					log.Infof("ignore find elemet: selector: %s %s", by, selector)
+					log.Infof("ignore find elemet: by: %s selector: %s", by, selector)
 					return Element{
 						err: ElementNotFoundErr,
 					}
@@ -224,7 +218,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 			}
 		}
 		if time.Since(start) > timeout {
-			log.Warnf("find element failed, selector: %s %s", by, selector)
+			log.Warnf("find element failed, by: %s selector: %s", by, selector)
 			return Element{
 				err: ElementNotFoundErr,
 			}
@@ -241,8 +235,4 @@ func (p *Extractor) ScrollBodyTop() error {
 func (p *Extractor) ScrollBodyBottom() error {
 	_, err := p.wd.ExecuteScript(`window.scrollTo({top:document.body.scrollHeight,left:0,behavior:"smooth"});`, nil)
 	return err
-}
-
-func (p *Extractor) WaitBodyScrollHeightChange(timeout ...time.Duration) (changed bool, err error) {
-	return
 }

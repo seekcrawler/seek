@@ -147,7 +147,6 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 
 	go c.exec(conf, wd)
 	go c.watchUrlChange(wd)
-
 	err = wd.Get(rawUrl)
 	if err != nil {
 		err = fmt.Errorf("request url: %s error: %s", rawUrl, err)
@@ -229,16 +228,26 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 
 func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 	var currentUrl string
+	pollInterval := 5 * time.Millisecond
+	const emptyUrl = "data:,"
 	for {
 		select {
 		default:
-			newUrl, _ := wd.CurrentURL()
+			newUrl, err := wd.CurrentURL()
+			if err != nil {
+				log.Errorf("get current url error: %s", err)
+				return
+			}
 			if newUrl == "" {
 				log.Debugf("close url watcher")
 				return
 			}
+			if newUrl == emptyUrl {
+				time.Sleep(pollInterval)
+				continue
+			}
 			if newUrl != currentUrl {
-				if currentUrl == "" || currentUrl == "data:" {
+				if currentUrl == "" || currentUrl == emptyUrl {
 					log.Infof("load url: %s", newUrl)
 				} else {
 					log.Infof("url changeed, previous: %s, now: %s", currentUrl, newUrl)
@@ -246,10 +255,11 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 				if c.extractor != nil {
 					c.extractor.stop()
 				}
+
 				c.visitUrl <- RawUrl(newUrl)
 				currentUrl = newUrl
 			}
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(pollInterval)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package kraken_test
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gozelle/fs"
 	"github.com/gozelle/logger"
@@ -316,12 +317,46 @@ func Login(c *kraken.Context) {
 
 func UserHome(c *kraken.Context) {
 	fmt.Println("this is user home")
+	c.Check(func() bool {
+		time.Sleep(5 * time.Second)
+		if c.URL.String() != c.Extractor.CurrentURL().String() {
+			fmt.Println("this is user home, url redirect")
+			return false
+		}
+		return true
+	})
 
-	time.Sleep(10 * time.Second)
-	err := c.Extractor.ScrollBodyBottom()
+	body, err := c.Extractor.FindElement(kraken.ByTagName, "body").Element()
 	if err != nil {
 		return
 	}
+
+	height, err := body.ScrollHeight()
+	if err != nil {
+		return
+	}
+
+	for {
+		err = body.WaitScrollHeightIncreased(height, 5*time.Second)
+		if err != nil {
+			if errors.Is(err, kraken.TimoutErr) {
+				break
+			} else {
+				return
+			}
+		}
+		height, err = body.ScrollHeight()
+		if err != nil {
+			return
+		}
+		time.Sleep(3 * time.Second)
+		err = c.Extractor.ScrollBodyBottom()
+		if err != nil {
+			return
+		}
+	}
+
+	time.Sleep(5 * time.Second)
 
 	c.Done()
 }

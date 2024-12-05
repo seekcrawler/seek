@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-func NewSelector(s string) Element {
-	return Element{}
+func newElement(wd selenium.WebDriver, elem selenium.WebElement, extractor *Extractor) Element {
+	return Element{wd: wd, elem: elem, extractor: extractor}
 }
 
 type Element struct {
@@ -27,40 +27,22 @@ func (p Element) Error() error {
 	return p.err
 }
 
-func (p Element) WithTimeoutFindElement(by By, selector string, timeout time.Duration) Element {
+func (p Element) FindElement(by By, selector string, timeout ...time.Duration) Element {
 	if p.err != nil {
 		return Element{
 			err: p.err,
 		}
 	}
-	return p.extractor.findElement(p.elem, by, selector, timeout)
+	return p.extractor.findElement(p.elem, by, selector, sumTimeout(timeout))
 }
 
-func (p Element) FindElement(by By, selector string) Element {
-	if p.err != nil {
-		return Element{
-			err: p.err,
-		}
-	}
-	return p.WithTimeoutFindElement(by, selector, DefaultExtractorTimeout)
-}
-
-func (p Element) WithTimeoutFindElements(by By, selector string, timeout time.Duration) Elements {
+func (p Element) FindElements(by By, selector string, timeout ...time.Duration) Elements {
 	if p.err != nil {
 		return Elements{
 			err: p.err,
 		}
 	}
-	return p.extractor.findElements(p.elem, by, selector, timeout)
-}
-
-func (p Element) FindElements(by By, selector string) Elements {
-	if p.err != nil {
-		return Elements{
-			err: p.err,
-		}
-	}
-	return p.WithTimeoutFindElements(by, selector, DefaultExtractorTimeout)
+	return p.extractor.findElements(p.elem, by, selector, sumTimeout(timeout))
 }
 
 func (p Element) Input(val string) error {
@@ -70,7 +52,7 @@ func (p Element) Input(val string) error {
 	return p.elem.SendKeys(val)
 }
 
-func (p Element) Valid() (Element, error) {
+func (p Element) Element() (Element, error) {
 	return p, p.err
 }
 
@@ -89,7 +71,7 @@ func (p Element) Click() error {
 }
 
 func (p Element) MouseHover() (err error) {
-	_, err = p.wd.ExecuteScript(prepareEventDispatchScript("mouseover"), []interface{}{p.elem})
+	_, err = p.wd.ExecuteScript(prepareEventScript("mouseover"), []interface{}{p.elem})
 	if err != nil {
 		return
 	}
@@ -97,7 +79,7 @@ func (p Element) MouseHover() (err error) {
 }
 
 func (p Element) MouseOut() (err error) {
-	_, err = p.wd.ExecuteScript(prepareEventDispatchScript("mouseout"), []interface{}{p.elem})
+	_, err = p.wd.ExecuteScript(prepareEventScript("mouseout"), []interface{}{p.elem})
 	if err != nil {
 		return
 	}
@@ -116,4 +98,35 @@ func (p Element) ScrollBottom() {
 		  behavior: "smooth",
 		});
 	*/
+}
+
+func (p Element) ScrollHeight() (height int64, err error) {
+	scrollHeight, err := p.wd.ExecuteScript("return arguments[0].scrollHeight;", []interface{}{p.elem})
+	if err != nil {
+		return
+	}
+	v, _ := scrollHeight.(float64)
+	height = int64(v)
+	return
+}
+
+func (p Element) WaitScrollHeightIncreased(previous int64, timeout ...time.Duration) error {
+	_timeout := sumTimeout(timeout)
+	if _timeout <= minExtractorTimeout {
+		_timeout = DefaultExtractorTimeout
+	}
+	start := time.Now()
+	for {
+		height, err := p.ScrollHeight()
+		if err != nil {
+			return err
+		}
+		if height > previous {
+			return nil
+		}
+		if time.Since(start) > _timeout {
+			return TimoutErr
+		}
+		time.Sleep(CheckElementInterval)
+	}
 }

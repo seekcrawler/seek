@@ -1,6 +1,8 @@
 package kraken
 
-import "net/url"
+import (
+	"net/url"
+)
 
 type Context struct {
 	URL       url.URL
@@ -8,10 +10,15 @@ type Context struct {
 	Extractor *Extractor
 	handlers  HandlersChain
 	index     int8
+	check     func() bool
 }
 
 func (c *Context) Done() {
 	c.Extractor.done()
+}
+
+func (c *Context) Check(check func() bool) {
+	c.check = check
 }
 
 func (c *Context) reset() {
@@ -27,7 +34,18 @@ func (c *Context) Next() {
 	c.index++
 	for c.index < int8(len(c.handlers)) {
 		if c.handlers[c.index] != nil {
-			go c.handlers[c.index](c)
+			index := c.index
+			go func() {
+				exec := true
+				if c.check != nil {
+					exec = c.check()
+				}
+				if !exec {
+					c.Done()
+				} else {
+					c.handlers[index](c)
+				}
+			}()
 		}
 		c.index++
 	}

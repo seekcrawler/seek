@@ -70,6 +70,14 @@ func SleepRandSeconds(min, max int) {
 	time.Sleep(t)
 }
 
-func prepareEventDispatchScript(event string) string {
+func prepareEventScript(event string) string {
 	return fmt.Sprintf("const event = new MouseEvent('%s', { bubbles: true }); arguments[0].dispatchEvent(event);", event)
+}
+
+func sumTimeout(timeout []time.Duration) time.Duration {
+	total := time.Duration(0)
+	for _, d := range timeout {
+		total += d
+	}
+	return total
 }
