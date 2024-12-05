@@ -17,15 +17,21 @@ func (c *Context) Abort(fn func() bool) {
 	c.abort = fn
 }
 
+func (c *Context) Done() {
+	if c.Extractor != nil {
+		c.Extractor.done()
+	}
+}
+
 func (c *Context) reset() {
 	c.Params = c.Params[:0]
 	c.handlers = nil
 	c.index = -1
 }
 
-func (c *Context) done() {
+func (c *Context) stop() {
 	if c.Extractor != nil {
-		c.Extractor.done()
+		c.Extractor.stop()
 	}
 }
 
@@ -42,14 +48,14 @@ func (c *Context) Next() {
 				abort = c.abort()
 			}
 			if abort {
-				c.done()
+				c.stop()
 			} else {
 				c.handlers[index](c)
 			}
 		}
 		c.index++
 	}
-	c.done()
+	c.stop()
 }
 
 type HandlerFunc func(*Context)
