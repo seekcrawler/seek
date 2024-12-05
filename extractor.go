@@ -56,11 +56,11 @@ func NewExtractor() *Extractor {
 }
 
 type Extractor struct {
-	url     url.URL
-	wd      selenium.WebDriver
-	hasDone atomic.Bool
-	errC    chan error
-	doneC   chan extractorStatus
+	url    url.URL
+	wd     selenium.WebDriver
+	hasEnd atomic.Bool
+	errC   chan error
+	doneC  chan extractorStatus
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -100,14 +100,14 @@ func (p *Extractor) Start(ctx *Context) (status extractorStatus, err error) {
 }
 
 func (p *Extractor) done() {
-	ok := p.hasDone.CompareAndSwap(false, true)
+	ok := p.hasEnd.CompareAndSwap(false, true)
 	if ok {
 		p.doneC <- extractorDone
 	}
 }
 
 func (p *Extractor) stop() {
-	ok := p.hasDone.CompareAndSwap(false, true)
+	ok := p.hasEnd.CompareAndSwap(false, true)
 	if ok {
 		p.doneC <- extractorStop
 	}
@@ -145,7 +145,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 		parent = p.wd
 	}
 	for {
-		if p.hasDone.Load() {
+		if p.hasEnd.Load() {
 			log.Infof("cancel find elements, by: %s selector: %s", by, selector)
 			return Elements{
 				err: OtherElementHasBeenProcessedErr,
@@ -159,7 +159,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 				for _, elem := range results {
 					elems = append(elems, newElement(p.wd, elem, p))
 				}
-				if !p.hasDone.Load() {
+				if !p.hasEnd.Load() {
 					return Elements{
 						wd:    p.wd,
 						elems: elems,
@@ -198,7 +198,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 		parent = p.wd
 	}
 	for {
-		if p.hasDone.Load() {
+		if p.hasEnd.Load() {
 			log.Infof("cancel find element, by: %s selector: %s", by, selector)
 			return Element{
 				err: OtherElementHasBeenProcessedErr,
@@ -210,7 +210,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 			isDisplayed, err = elem.IsDisplayed()
 			if err == nil && isDisplayed {
 				log.Debugf("find element success, by: %s selector: %s", by, selector)
-				if !p.hasDone.Load() {
+				if !p.hasEnd.Load() {
 					return newElement(p.wd, elem, p)
 				} else {
 					log.Infof("ignore find elemet: by: %s selector: %s", by, selector)
