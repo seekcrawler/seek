@@ -1,0 +1,105 @@
+package kraken
+
+import (
+	"github.com/tebeka/selenium"
+	"time"
+)
+
+func NewSelector(s string) Element {
+	return Element{}
+}
+
+type Element struct {
+	err       error
+	wd        selenium.WebDriver
+	elem      selenium.WebElement
+	extractor *Extractor
+}
+
+//	func (p Element) Elem() (selenium.WebElement, error) {
+//		if p.err != nil {
+//			return nil, p.err
+//		}
+//		return p.elem, nil
+//	}
+
+func (p Element) Error() error {
+	return p.err
+}
+
+func (p Element) WithTimeoutFindElement(by By, selector string, timeout time.Duration) Element {
+	if p.err != nil {
+		return Element{
+			err: p.err,
+		}
+	}
+	return p.extractor.findElement(p.elem, by, selector, timeout)
+}
+
+func (p Element) FindElement(by By, selector string) Element {
+	if p.err != nil {
+		return Element{
+			err: p.err,
+		}
+	}
+	return p.WithTimeoutFindElement(by, selector, DefaultExtractorTimeout)
+}
+
+func (p Element) WithTimeoutFindElements(by By, selector string, timeout time.Duration) Elements {
+	if p.err != nil {
+		return Elements{
+			err: p.err,
+		}
+	}
+	return p.extractor.findElements(p.elem, by, selector, timeout)
+}
+
+func (p Element) FindElements(by By, selector string) Elements {
+	if p.err != nil {
+		return Elements{
+			err: p.err,
+		}
+	}
+	return p.WithTimeoutFindElements(by, selector, DefaultExtractorTimeout)
+}
+
+func (p Element) Input(val string) error {
+	if p.err != nil {
+		return p.err
+	}
+	return p.elem.SendKeys(val)
+}
+
+func (p Element) Valid() (Element, error) {
+	return p, p.err
+}
+
+func (p Element) Text() (test string, err error) {
+	if p.err != nil {
+		return "", p.err
+	}
+	return p.elem.Text()
+}
+
+func (p Element) Click() error {
+	if p.err != nil {
+		return p.err
+	}
+	return p.elem.Click()
+}
+
+func (p Element) MouseHover() (err error) {
+	_, err = p.wd.ExecuteScript(prepareEventDispatchScript("mouseover"), []interface{}{p.elem})
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (p Element) MouseOut() (err error) {
+	_, err = p.wd.ExecuteScript(prepareEventDispatchScript("mouseout"), []interface{}{p.elem})
+	if err != nil {
+		return
+	}
+	return
+}
