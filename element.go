@@ -16,13 +16,6 @@ type Element struct {
 	extractor *Extractor
 }
 
-//	func (p Element) Elem() (selenium.WebElement, error) {
-//		if p.err != nil {
-//			return nil, p.err
-//		}
-//		return p.elem, nil
-//	}
-
 func (p Element) Error() error {
 	return p.err
 }
