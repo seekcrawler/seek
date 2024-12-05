@@ -18,9 +18,7 @@ func (c *Context) Abort(fn func() bool) {
 }
 
 func (c *Context) Done() {
-	if c.Extractor != nil {
-		c.Extractor.done()
-	}
+	c.Extractor.done()
 }
 
 func (c *Context) reset() {
