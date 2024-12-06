@@ -55,13 +55,13 @@ func NewExtractor() *Extractor {
 }
 
 type Extractor struct {
-	url         url.URL
-	wd          selenium.WebDriver
-	hasEnd      atomic.Bool
-	hasClose    atomic.Bool
-	errC        chan error
-	stopC       chan struct{}
-	crawlerDone chan error
+	url      url.URL
+	wd       selenium.WebDriver
+	hasEnd   atomic.Bool
+	hasClose atomic.Bool
+	errC     chan error
+	stopC    chan struct{}
+	crawler  *crawler
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -101,7 +101,7 @@ func (p *Extractor) Start(ctx *Context) (err error) {
 }
 
 func (p *Extractor) done() {
-	p.crawlerDone <- nil
+	p.crawler.sendDone(nil)
 }
 
 func (p *Extractor) stop() {
@@ -111,8 +111,9 @@ func (p *Extractor) stop() {
 	}
 }
 
-func initExtractor(extractor *Extractor, done chan error, wd selenium.WebDriver, url url.URL) {
-	extractor.crawlerDone = done
+func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL) {
+	extractor := c.extractor
+	extractor.crawler = c
 	extractor.wd = wd
 	extractor.url = url
 	if extractor.stopC == nil {

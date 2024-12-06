@@ -8,6 +8,7 @@ import (
 	"github.com/tebeka/selenium/chrome"
 	"net/url"
 	"os"
+	"sync/atomic"
 	"time"
 )
 
@@ -63,13 +64,22 @@ type crawler struct {
 	done      chan error
 	extractor *Extractor
 	data      chan any
+	hasDone   atomic.Bool
 }
 
 func (c *crawler) close() {
 	log.Debugf("close crawler")
-	close(c.visitUrl)
-	close(c.done)
-	close(c.data)
+	if c.hasDone.CompareAndSwap(false, true) {
+		close(c.visitUrl)
+		close(c.done)
+		close(c.data)
+	}
+}
+
+func (c *crawler) sendDone(err error) {
+	if !c.hasDone.Load() {
+		c.done <- err
+	}
 }
 
 func (c *crawler) defaultConf() *Conf {
@@ -129,7 +139,7 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		go func() {
 			e := conf.dataHandler(c.data)
 			if e != nil {
-				c.done <- fmt.Errorf("exec data handler error: %w", e)
+				c.sendDone(fmt.Errorf("exec data handler error: %w", e))
 			}
 		}()
 	}
@@ -142,8 +152,12 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		return
 	}
 
+	var ok bool
 	select {
-	case err = <-c.done:
+	case err, ok = <-c.done:
+		if !ok {
+			return
+		}
 		if err != nil {
 			log.Errorf("exec crawer error: %s", err)
 		}
@@ -161,15 +175,15 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 			}
 			u, err := url.Parse(string(visitUrl))
 			if err != nil {
-				c.done <- fmt.Errorf("parse url error: %w", err)
+				c.sendDone(fmt.Errorf("parse url error: %w", err))
 				return
 			}
 			c.extractor = NewExtractor()
-			initExtractor(c.extractor, c.done, wd, *u)
+			initExtractor(c, wd, *u)
 			err = wd.Get(u.String())
 			if err != nil {
 				log.Errorf("wd get url: %s error: %s", u, err)
-				c.done <- fmt.Errorf("visit url %s error: %w", visitUrl, err)
+				c.sendDone(fmt.Errorf("visit url %s error: %w", visitUrl, err))
 				return
 			}
 
@@ -177,17 +191,17 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				URL: *u,
 			}
 			if conf.router == nil {
-				c.done <- fmt.Errorf("router is nil")
+				c.sendDone(fmt.Errorf("router is nil"))
 				return
 			}
 			err = conf.router.prepareContext(ctx, c.extractor)
 			if err != nil && !errors.Is(err, handlerNotFoundErr) {
-				c.done <- fmt.Errorf("prepare router error: %w", err)
+				c.sendDone(fmt.Errorf("prepare router error: %w", err))
 				return
 			}
 			if len(ctx.handlers) == 0 {
 				if conf.router.defaultHandler == nil {
-					c.done <- fmt.Errorf("no default handler")
+					c.sendDone(fmt.Errorf("no default handler"))
 					return
 				} else {
 					ctx.Extractor = c.extractor
@@ -196,7 +210,7 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 			}
 			err = c.extractor.Start(ctx)
 			if err != nil {
-				c.done <- err
+				c.sendDone(err)
 				return
 			}
 		}
@@ -247,5 +261,5 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 }
 
 func (c *crawler) stop() {
-	c.done <- nil
+	c.sendDone(nil)
 }
