@@ -17,6 +17,14 @@ func (c *Context) Abort(fn func() bool) {
 	c.abort = fn
 }
 
+func (c *Context) HandleData(data any) {
+	if c.Extractor != nil {
+		if c.Extractor.crawler != nil {
+			c.Extractor.crawler.data <- data
+		}
+	}
+}
+
 func (c *Context) Done() {
 	c.Extractor.done()
 }
