@@ -17,7 +17,7 @@ var (
 	CheckElementInterval    = 100 * time.Millisecond
 )
 
-const minExtractorTimeout = 1 * time.Second
+const minExtractorTimeout = 0
 
 var (
 	ElementNotFoundErr  = errors.New("element not found")
@@ -65,8 +65,10 @@ type Extractor struct {
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
-	d := sumTimeDuration(t)
-	time.Sleep(fixTimeDuration(d))
+	d := calcTimeDuration(t)
+	if d > 0 {
+		time.Sleep(fixTimeDuration(d))
+	}
 }
 
 func (p *Extractor) CurrentURL() *url.URL {
@@ -133,7 +135,7 @@ func (p *Extractor) close() {
 }
 
 func (p *Extractor) FindElements(by By, selector string, timeout ...time.Duration) Elements {
-	return p.findElements(nil, by, selector, sumTimeDuration(timeout))
+	return p.findElements(nil, by, selector, calcTimeDuration(timeout))
 }
 
 type iFindElements interface {
@@ -185,7 +187,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 }
 
 func (p *Extractor) FindElement(by By, selector string, timeout ...time.Duration) Element {
-	return p.findElement(nil, by, selector, sumTimeDuration(timeout))
+	return p.findElement(nil, by, selector, calcTimeDuration(timeout))
 
 }
 
@@ -242,6 +244,11 @@ func (p *Extractor) ScrollBottom() error {
 	return err
 }
 
+func (p *Extractor) ScrollY(y int64) error {
+	_, err := p.wd.ExecuteScript(fmt.Sprintf(`window.scrollTo({top:%d,left:0,behavior:"smooth"});`, y), nil)
+	return err
+}
+
 func (p *Extractor) ScrollHeight() (height int64, err error) {
 	scrollHeight, err := p.wd.ExecuteScript("return document.body.scrollHeight;", nil)
 	if err != nil {
@@ -253,7 +260,7 @@ func (p *Extractor) ScrollHeight() (height int64, err error) {
 }
 
 func (p *Extractor) WaitScrollHeightIncreased(previous int64, timeout ...time.Duration) error {
-	_timeout := fixTimeDuration(sumTimeDuration(timeout))
+	_timeout := fixTimeDuration(calcTimeDuration(timeout))
 	start := time.Now()
 	for {
 		height, err := p.ScrollHeight()
@@ -270,12 +277,62 @@ func (p *Extractor) WaitScrollHeightIncreased(previous int64, timeout ...time.Du
 	}
 }
 
+func (p *Extractor) AutoScrollBottom(renderInterval time.Duration, handle func() error) (err error) {
+	for {
+		var h int64
+		h, err = p.ScrollHeight()
+		if err != nil {
+			return
+		}
+		err = p.ScrollBottom()
+		if err != nil {
+			return
+		}
+		e := p.WaitScrollHeightIncreased(h, renderInterval)
+		if e != nil {
+			return
+		}
+		if handle != nil {
+			err = handle()
+			if err != nil {
+				return
+			}
+		}
+		p.Wait(renderInterval)
+	}
+}
+
+func (p *Extractor) AutoWheelScrollBottom(renderInterval time.Duration, rowHeight int64, handle func() error) (err error) {
+	h, err := p.ScrollHeight()
+	if err != nil {
+		return
+	}
+	var y = int64(0)
+	for {
+		y += rowHeight
+		err = p.ScrollY(rowHeight)
+		if err != nil {
+			return
+		}
+		if handle != nil {
+			err = handle()
+			if err != nil {
+				return
+			}
+		}
+		if y > h {
+			return
+		}
+		p.Wait(renderInterval)
+	}
+}
+
 func (p *Extractor) GetCookies() ([]selenium.Cookie, error) {
 	return p.wd.GetCookies()
 }
 
 func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie selenium.Cookie, err error) {
-	_timeout := fixTimeDuration(sumTimeDuration(timeout))
+	_timeout := fixTimeDuration(calcTimeDuration(timeout))
 	start := time.Now()
 	for {
 		cookie, err = p.wd.GetCookie(name)

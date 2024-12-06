@@ -74,7 +74,10 @@ func prepareEventScript(event string) string {
 	return fmt.Sprintf("const event = new MouseEvent('%s', { bubbles: true }); arguments[0].dispatchEvent(event);", event)
 }
 
-func sumTimeDuration(timeout []time.Duration) time.Duration {
+func calcTimeDuration(timeout []time.Duration) time.Duration {
+	if len(timeout) == 0 {
+		return -1
+	}
 	total := time.Duration(0)
 	for _, d := range timeout {
 		total += d
@@ -83,7 +86,7 @@ func sumTimeDuration(timeout []time.Duration) time.Duration {
 }
 
 func fixTimeDuration(d time.Duration) time.Duration {
-	if d <= minExtractorTimeout {
+	if d < minExtractorTimeout {
 		return DefaultExtractorTimeout
 	}
 	return d
