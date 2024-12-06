@@ -55,7 +55,7 @@ func NewExtractor() *Extractor {
 }
 
 type Extractor struct {
-	*scroller
+	*baseScroller
 	url      url.URL
 	wd       selenium.WebDriver
 	hasEnd   atomic.Bool
@@ -125,12 +125,20 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL) {
 	if extractor.errC == nil {
 		extractor.errC = make(chan error)
 	}
-	if extractor.scroller == nil {
-		extractor.scroller = &scroller{
-			elem: "document.body",
+	if extractor.baseScroller == nil {
+		extractor.baseScroller = &baseScroller{
 			wd:   wd,
 			args: nil,
 			wait: extractor.Wait,
+			scrollTopElem: func() string {
+				return "window"
+			},
+			scrollBottomElem: func() (string, string) {
+				return "window", "document.body"
+			},
+			scrollHeightElem: func() string {
+				return "document.body"
+			},
 		}
 	}
 }

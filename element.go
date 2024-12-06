@@ -1,21 +1,30 @@
 package kraken
 
 import (
+	"fmt"
 	"github.com/tebeka/selenium"
 	"time"
 )
 
 func newElement(wd selenium.WebDriver, elem selenium.WebElement, extractor *Extractor) Element {
-	return Element{wd: wd, elem: elem, extractor: extractor, scroller: &scroller{
-		elem: "arguments[0]",
+	return Element{wd: wd, elem: elem, extractor: extractor, baseScroller: &baseScroller{
 		wd:   wd,
 		args: []any{elem},
 		wait: extractor.Wait,
+		scrollTopElem: func() string {
+			return "arguments[0]"
+		},
+		scrollBottomElem: func() (string, string) {
+			return "arguments[0]", "arguments[0]"
+		},
+		scrollHeightElem: func() string {
+			return "arguments[0]"
+		},
 	}}
 }
 
 type Element struct {
-	*scroller
+	*baseScroller
 	err       error
 	wd        selenium.WebDriver
 	elem      selenium.WebElement
@@ -83,4 +92,44 @@ func (p Element) MouseOut() (err error) {
 		return
 	}
 	return
+}
+
+func (s baseScroller) WheelScrollX(x int64) error {
+	_, err := s.wd.ExecuteScript(fmt.Sprintf(`arguments[0].dispatchEvent(new WheelEvent('wheel',{deltaX:%d,bubbles:true,cancelable:true}));`, x), s.args)
+	return err
+}
+
+func (s baseScroller) WheelScrollY(y int64) error {
+	_, err := s.wd.ExecuteScript(fmt.Sprintf(`arguments[0].dispatchEvent(new WheelEvent('wheel',{deltaY:%d,bubbles:true,cancelable:true}));`, y), s.args)
+	return err
+}
+
+func (s baseScroller) AutoWheelScrollBottom(params AutoWheelScrollBottomParams) (err error) {
+	if params.RowHeight == 0 {
+		params.RowHeight = 14
+	}
+	var y = int64(0)
+	for {
+		var h int64
+		h, err = s.ScrollHeight()
+		if err != nil {
+			return
+		}
+		h += params.PaddingHeight
+		y += params.RowHeight
+		err = s.WheelScrollY(params.RowHeight)
+		if err != nil {
+			return
+		}
+		if params.Handle != nil {
+			err = params.Handle()
+			if err != nil {
+				return
+			}
+		}
+		if y > h {
+			return
+		}
+		s.wait(params.RenderInterval)
+	}
 }
