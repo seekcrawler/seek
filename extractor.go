@@ -232,12 +232,12 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 	}
 }
 
-func (p *Extractor) ScrollBodyTop() error {
+func (p *Extractor) ScrollTop() error {
 	_, err := p.wd.ExecuteScript(`window.scrollTo({top:0,left:0,behavior:"smooth"});`, nil)
 	return err
 }
 
-func (p *Extractor) ScrollBodyBottom() error {
+func (p *Extractor) ScrollBottom() error {
 	_, err := p.wd.ExecuteScript(`window.scrollTo({top:document.body.scrollHeight,left:0,behavior:"smooth"});`, nil)
 	return err
 }

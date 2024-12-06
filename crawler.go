@@ -233,6 +233,7 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 			newUrl := c.currentUrl(wd)
 			if newUrl == "" {
 				log.Debugf("close url watcher")
+				c.sendDone(fmt.Errorf("browser has closed"))
 				return
 			}
 			if newUrl == emptyUrl {

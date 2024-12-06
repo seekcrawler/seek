@@ -363,7 +363,7 @@ func UserHome(c *kraken.Context) {
 			return
 		}
 		time.Sleep(3 * time.Second)
-		err = c.Extractor.ScrollBodyBottom()
+		err = c.Extractor.ScrollBottom()
 		if err != nil {
 			return
 		}
