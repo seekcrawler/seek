@@ -22,8 +22,9 @@ func TestScroll(t *testing.T) {
 		fmt.Println("start to scroll")
 		fmt.Println(elem.ScrollHeight())
 
-		err = elem.AutoWheelScrollBottom(0, 300, func() error {
-			return nil
+		err = elem.AutoWheelScrollBottom(kraken.AutoWheelScrollBottomParams{
+			PaddingHeight: 300,
+			RowHeight:     300,
 		})
 		fmt.Println("stop")
 		if err != nil {

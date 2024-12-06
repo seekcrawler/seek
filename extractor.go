@@ -55,6 +55,7 @@ func NewExtractor() *Extractor {
 }
 
 type Extractor struct {
+	*scroller
 	url      url.URL
 	wd       selenium.WebDriver
 	hasEnd   atomic.Bool
@@ -123,6 +124,14 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL) {
 	}
 	if extractor.errC == nil {
 		extractor.errC = make(chan error)
+	}
+	if extractor.scroller == nil {
+		extractor.scroller = &scroller{
+			elem: "document.body",
+			wd:   wd,
+			args: nil,
+			wait: extractor.Wait,
+		}
 	}
 }
 
@@ -231,99 +240,6 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 			}
 		}
 		time.Sleep(CheckElementInterval)
-	}
-}
-
-func (p *Extractor) ScrollTop() error {
-	_, err := p.wd.ExecuteScript(`window.scrollTo({top:0,left:0,behavior:"smooth"});`, nil)
-	return err
-}
-
-func (p *Extractor) ScrollBottom() error {
-	_, err := p.wd.ExecuteScript(`window.scrollTo({top:document.body.scrollHeight,left:0,behavior:"smooth"});`, nil)
-	return err
-}
-
-func (p *Extractor) ScrollY(y int64) error {
-	_, err := p.wd.ExecuteScript(fmt.Sprintf(`window.scrollTo({top:%d,left:0,behavior:"smooth"});`, y), nil)
-	return err
-}
-
-func (p *Extractor) ScrollHeight() (height int64, err error) {
-	scrollHeight, err := p.wd.ExecuteScript("return document.body.scrollHeight;", nil)
-	if err != nil {
-		return
-	}
-	v, _ := scrollHeight.(float64)
-	height = int64(v)
-	return
-}
-
-func (p *Extractor) WaitScrollHeightIncreased(previous int64, timeout ...time.Duration) error {
-	_timeout := fixTimeDuration(calcTimeDuration(timeout))
-	start := time.Now()
-	for {
-		height, err := p.ScrollHeight()
-		if err != nil {
-			return err
-		}
-		if height > previous {
-			return nil
-		}
-		if time.Since(start) > _timeout {
-			return TimoutErr
-		}
-		time.Sleep(CheckElementInterval)
-	}
-}
-
-func (p *Extractor) AutoScrollBottom(renderInterval time.Duration, handle func() error) (err error) {
-	for {
-		var h int64
-		h, err = p.ScrollHeight()
-		if err != nil {
-			return
-		}
-		err = p.ScrollBottom()
-		if err != nil {
-			return
-		}
-		e := p.WaitScrollHeightIncreased(h, renderInterval)
-		if e != nil {
-			return
-		}
-		if handle != nil {
-			err = handle()
-			if err != nil {
-				return
-			}
-		}
-		p.Wait(renderInterval)
-	}
-}
-
-func (p *Extractor) AutoWheelScrollBottom(renderInterval time.Duration, rowHeight int64, handle func() error) (err error) {
-	h, err := p.ScrollHeight()
-	if err != nil {
-		return
-	}
-	var y = int64(0)
-	for {
-		y += rowHeight
-		err = p.ScrollY(rowHeight)
-		if err != nil {
-			return
-		}
-		if handle != nil {
-			err = handle()
-			if err != nil {
-				return
-			}
-		}
-		if y > h {
-			return
-		}
-		p.Wait(renderInterval)
 	}
 }
 
