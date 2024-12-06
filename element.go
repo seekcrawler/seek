@@ -79,18 +79,14 @@ func (p Element) MouseOut() (err error) {
 	return
 }
 
-func (p Element) ScrollTop() {
-
+func (p Element) ScrollTop() error {
+	_, err := p.wd.ExecuteScript(`arguments[0].scrollTo({top:0,left:0,behavior:"smooth"});`, []interface{}{p.elem})
+	return err
 }
 
-func (p Element) ScrollBottom() {
-	/*
-		window.scrollTo({
-		  top: document.body.scrollHeight,
-		  left: 0,
-		  behavior: "smooth",
-		});
-	*/
+func (p Element) ScrollBottom() error {
+	_, err := p.wd.ExecuteScript(`arguments[0].scrollTo({top:arguments[0].scrollHeight,left:0,behavior:"smooth"});`, []interface{}{p.elem})
+	return err
 }
 
 func (p Element) ScrollHeight() (height int64, err error) {

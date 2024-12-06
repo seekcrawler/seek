@@ -16,13 +16,11 @@ var log = logger.NewLogger("crawler")
 type RawUrl string
 
 type Conf struct {
-	debug bool
-	//pageExtractorFactory PageExtractorFactory
-	chromeArgs []string
-	router     *Router
+	debug       bool
+	chromeArgs  []string
+	router      *Router
+	dataHandler func(dataC chan any) error
 }
-
-//type PageExtractorFactory func(u url.URL) *Extractor
 
 type Option func(c *Conf)
 
@@ -38,11 +36,11 @@ func WithRouter(router *Router) Option {
 	}
 }
 
-//func WithPageExtractorFactory(f PageExtractorFactory) Option {
-//	return func(c *Conf) {
-//		c.pageExtractorFactory = f
-//	}
-//}
+func WithDataHandler(handler func(dataC chan any) error) Option {
+	return func(c *Conf) {
+		c.dataHandler = handler
+	}
+}
 
 func Request(rawUrl string, options ...Option) error {
 	c := newCrawler()
@@ -56,6 +54,7 @@ func newCrawler() *crawler {
 	return &crawler{
 		visitUrl: make(chan RawUrl),
 		done:     make(chan error),
+		data:     make(chan any),
 	}
 }
 
@@ -63,27 +62,15 @@ type crawler struct {
 	visitUrl  chan RawUrl
 	done      chan error
 	extractor *Extractor
+	data      chan any
 }
 
 func (c *crawler) close() {
 	log.Debugf("close crawler")
 	close(c.visitUrl)
 	close(c.done)
+	close(c.data)
 }
-
-//func (c *crawler) prepareExtractor(conf *Conf, u url.URL) (extractor *Extractor, err error) {
-//
-//	if conf.pageExtractorFactory == nil {
-//		err = fmt.Errorf("page extractor fatory is not initialized")
-//		return
-//	}
-//	extractor = conf.pageExtractorFactory(u)
-//	if extractor == nil {
-//		err = fmt.Errorf("new url: %s extractor is nil", u.String())
-//		return
-//	}
-//	return
-//}
 
 func (c *crawler) defaultConf() *Conf {
 	return &Conf{
@@ -137,6 +124,15 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 	defer func() {
 		_ = wd.Quit()
 	}()
+
+	if conf.dataHandler != nil {
+		go func() {
+			e := conf.dataHandler(c.data)
+			if e != nil {
+				c.done <- fmt.Errorf("exec data handler error: %w", e)
+			}
+		}()
+	}
 
 	go c.exec(conf, wd)
 	go c.watchUrlChange(wd)
