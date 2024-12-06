@@ -20,7 +20,7 @@ type Conf struct {
 	debug       bool
 	chromeArgs  []string
 	router      *Router
-	dataHandler func(dataC chan any) error
+	dataHandler func(dataC chan any)
 }
 
 type Option func(c *Conf)
@@ -37,7 +37,7 @@ func WithRouter(router *Router) Option {
 	}
 }
 
-func WithDataHandler(handler func(dataC chan any) error) Option {
+func WithDataHandler(handler func(dataC chan any)) Option {
 	return func(c *Conf) {
 		c.dataHandler = handler
 	}
@@ -137,10 +137,7 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 
 	if conf.dataHandler != nil {
 		go func() {
-			e := conf.dataHandler(c.data)
-			if e != nil {
-				c.sendDone(fmt.Errorf("exec data handler error: %w", e))
-			}
+			conf.dataHandler(c.data)
 		}()
 	}
 
