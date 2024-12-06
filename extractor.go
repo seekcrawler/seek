@@ -242,6 +242,34 @@ func (p *Extractor) ScrollBottom() error {
 	return err
 }
 
+func (p *Extractor) ScrollHeight() (height int64, err error) {
+	scrollHeight, err := p.wd.ExecuteScript("return document.body.scrollHeight;", nil)
+	if err != nil {
+		return
+	}
+	v, _ := scrollHeight.(float64)
+	height = int64(v)
+	return
+}
+
+func (p *Extractor) WaitScrollHeightIncreased(previous int64, timeout ...time.Duration) error {
+	_timeout := fixTimeDuration(sumTimeDuration(timeout))
+	start := time.Now()
+	for {
+		height, err := p.ScrollHeight()
+		if err != nil {
+			return err
+		}
+		if height > previous {
+			return nil
+		}
+		if time.Since(start) > _timeout {
+			return TimoutErr
+		}
+		time.Sleep(CheckElementInterval)
+	}
+}
+
 func (p *Extractor) GetCookies() ([]selenium.Cookie, error) {
 	return p.wd.GetCookies()
 }
