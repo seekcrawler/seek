@@ -1,6 +1,7 @@
 package kraken
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/gozelle/logger"
@@ -21,6 +22,7 @@ type Conf struct {
 	chromeArgs  []string
 	router      *Router
 	dataHandler func(dataC chan any)
+	timeout     time.Duration
 }
 
 type Option func(c *Conf)
@@ -43,12 +45,18 @@ func WithDataHandler(handler func(dataC chan any)) Option {
 	}
 }
 
-func Request(rawUrl string, options ...Option) error {
+func WithTimeout(timeout time.Duration) Option {
+	return func(c *Conf) {
+		c.timeout = timeout
+	}
+}
+
+func Request(ctx context.Context, rawUrl string, options ...Option) error {
 	c := newCrawler()
 	defer func() {
 		c.close()
 	}()
-	return c.Run(rawUrl, options...)
+	return c.Run(ctx, rawUrl, options...)
 }
 
 func newCrawler() *crawler {
@@ -68,12 +76,12 @@ type crawler struct {
 }
 
 func (c *crawler) close() {
-	log.Debugf("close crawler")
 	if c.hasDone.CompareAndSwap(false, true) {
 		close(c.visitUrl)
 		close(c.done)
 		close(c.data)
 	}
+	log.Infof("close crawler")
 }
 
 func (c *crawler) sendDone(err error) {
@@ -96,7 +104,7 @@ func (c *crawler) defaultConf() *Conf {
 	}
 }
 
-func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
+func (c *crawler) Run(ctx context.Context, rawUrl string, options ...Option) (err error) {
 	conf := c.defaultConf()
 	for _, option := range options {
 		option(conf)
@@ -141,7 +149,7 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		}()
 	}
 
-	go c.exec(conf, wd)
+	go c.exec(ctx, conf, wd)
 	go c.watchUrlChange(wd)
 	err = wd.Get(rawUrl)
 	if err != nil {
@@ -162,7 +170,7 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 	}
 }
 
-func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
+func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 	for {
 		select {
 		case visitUrl, ok := <-c.visitUrl:
@@ -175,8 +183,11 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				c.sendDone(fmt.Errorf("parse url error: %w", err))
 				return
 			}
+			if c.extractor != nil && c.extractor.ctx != nil && c.extractor.ctx.Context != nil {
+				ctx = c.extractor.ctx.Context
+			}
 			c.extractor = NewExtractor()
-			initExtractor(c, wd, *u)
+			initExtractor(c, wd, *u, conf.timeout)
 			err = wd.Get(u.String())
 			if err != nil {
 				log.Errorf("wd get url: %s error: %s", u, err)
@@ -184,28 +195,29 @@ func (c *crawler) exec(conf *Conf, wd selenium.WebDriver) {
 				return
 			}
 
-			ctx := &Context{
-				URL: *u,
+			kCtx := &Context{
+				URL:     *u,
+				Context: ctx,
 			}
 			if conf.router == nil {
 				c.sendDone(fmt.Errorf("router is nil"))
 				return
 			}
-			err = conf.router.prepareContext(ctx, c.extractor)
+			err = conf.router.prepareContext(kCtx, c.extractor)
 			if err != nil && !errors.Is(err, handlerNotFoundErr) {
 				c.sendDone(fmt.Errorf("prepare router error: %w", err))
 				return
 			}
-			if len(ctx.handlers) == 0 {
+			if len(kCtx.handlers) == 0 {
 				if conf.router.defaultHandler == nil {
 					c.sendDone(fmt.Errorf("no default handler"))
 					return
 				} else {
-					ctx.Extractor = c.extractor
-					ctx.handlers = append(ctx.handlers, conf.router.defaultHandler)
+					kCtx.Extractor = c.extractor
+					kCtx.handlers = append(kCtx.handlers, conf.router.defaultHandler)
 				}
 			}
-			err = c.extractor.Start(ctx)
+			err = c.extractor.Start(kCtx)
 			if err != nil {
 				c.sendDone(err)
 				return
@@ -232,7 +244,7 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 		default:
 			newUrl := c.currentUrl(wd)
 			if newUrl == "" {
-				log.Debugf("close url watcher")
+				//log.Debugf("close url watcher")
 				c.sendDone(fmt.Errorf("browser has closed"))
 				return
 			}
@@ -249,7 +261,6 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 				if c.extractor != nil {
 					c.extractor.stop()
 				}
-
 				c.visitUrl <- RawUrl(newUrl)
 				currentUrl = newUrl
 			}

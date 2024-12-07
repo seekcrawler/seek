@@ -63,6 +63,9 @@ type Extractor struct {
 	errC     chan error
 	stopC    chan struct{}
 	crawler  *crawler
+	timeout  time.Duration
+	timer    *time.Timer
+	ctx      *Context
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -83,12 +86,25 @@ func (p *Extractor) CurrentURL() *url.URL {
 	return &url.URL{}
 }
 
+// Ping to avoid extractor timeout
+func (p *Extractor) Ping(timeout ...time.Duration) {
+	d := calcTimeDuration(timeout)
+	if d <= 0 {
+		d = p.timeout
+	}
+	if p.timer != nil {
+		p.timer.Reset(fixTimeDuration(d))
+	}
+	return
+}
+
 func (p *Extractor) Start(ctx *Context) (err error) {
 	defer func() {
 		p.close()
 	}()
 
-	timeout := time.NewTimer(DefaultExtractorTimeout)
+	p.ctx = ctx
+	p.timer = time.NewTimer(fixTimeDuration(p.timeout))
 
 	log.Infof("run extractor, url: %s handlers: %d", p.url.String(), len(ctx.handlers))
 
@@ -97,14 +113,10 @@ func (p *Extractor) Start(ctx *Context) (err error) {
 	select {
 	case <-p.stopC:
 		return
-	case <-timeout.C:
+	case <-p.timer.C:
 		err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
 		return
 	}
-}
-
-func (p *Extractor) done() {
-	p.crawler.sendDone(nil)
 }
 
 func (p *Extractor) stop() {
@@ -114,11 +126,12 @@ func (p *Extractor) stop() {
 	}
 }
 
-func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL) {
+func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL, timeout time.Duration) {
 	extractor := c.extractor
 	extractor.crawler = c
 	extractor.wd = wd
 	extractor.url = url
+	extractor.timeout = timeout
 	if extractor.stopC == nil {
 		extractor.stopC = make(chan struct{})
 	}

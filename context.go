@@ -1,6 +1,8 @@
 package kraken
 
 import (
+	"context"
+	"errors"
 	"net/url"
 )
 
@@ -11,6 +13,7 @@ type Context struct {
 	handlers HandlersChain
 	index    int8
 	abort    func() bool
+	context.Context
 }
 
 func (c *Context) JustWait() {
@@ -33,8 +36,12 @@ func (c *Context) HandleData(data any) {
 	}
 }
 
-func (c *Context) Done() {
-	c.Extractor.done()
+func (c *Context) Done(err ...error) {
+	var e error
+	if len(err) > 0 {
+		e = errors.Join(err...)
+	}
+	c.crawler.sendDone(e)
 }
 
 func (c *Context) reset() {
@@ -73,5 +80,4 @@ func (c *Context) Next() {
 }
 
 type HandlerFunc func(*Context)
-
 type HandlersChain []HandlerFunc

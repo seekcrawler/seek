@@ -1,6 +1,7 @@
 package neteasy
 
 import (
+	"context"
 	"github.com/gozelle/fs"
 	"github.com/gozelle/logger"
 	"github.com/krakenspider/kraken"
@@ -26,7 +27,8 @@ func TestScroll(t *testing.T) {
 
 	router := kraken.NewRouter(Handler)
 
-	err = kraken.Request("https://163.com",
+	err = kraken.Request(context.Background(),
+		"https://163.com",
 		kraken.WithChromeArgs([]string{
 			//"--no-sandbox",
 			//"--headless",    // 无头模式运行
@@ -58,7 +60,8 @@ func TestWheelScroll(t *testing.T) {
 
 	router := kraken.NewRouter(Handler)
 
-	err = kraken.Request("https://163.com",
+	err = kraken.Request(context.Background(),
+		"https://163.com",
 		kraken.WithChromeArgs([]string{
 			//"--no-sandbox",
 			//"--headless",    // 无头模式运行
