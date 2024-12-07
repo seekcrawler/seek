@@ -68,9 +68,7 @@ func WithPreloadTime(t time.Duration) Option {
 func Request(rawUrl string, options ...Option) error {
 	c := newCrawler()
 	defer func() {
-		log.Infof("prepare close crawer")
 		c.close()
-		log.Infof("prepare close crawer done")
 	}()
 	return c.Run(rawUrl, options...)
 }
@@ -187,7 +185,7 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 			return
 		}
 		if err != nil {
-			log.Errorf("exec crawer error: %s", err)
+			log.Errorf("exec crawler error: %s", err)
 		}
 		return
 	}
