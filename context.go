@@ -13,8 +13,8 @@ type Context struct {
 	abort    func() bool
 }
 
-func (c *Context) JustSleep() {
-	JustSleep()
+func (c *Context) JustWait() {
+	JustWait()
 }
 
 func (c *Context) JustThink() {

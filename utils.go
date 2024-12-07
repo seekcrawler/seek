@@ -52,7 +52,7 @@ func randInt(min, max int) int {
 	return rand.Intn(max-min+1) + min
 }
 
-func JustSleep() {
+func JustWait() {
 	t := time.Duration(randInt(1, 3)) * time.Second
 	log.Debugf("just sleep: %s", t)
 	time.Sleep(t)
