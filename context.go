@@ -13,6 +13,10 @@ type Context struct {
 	abort    func() bool
 }
 
+func (c *Context) JustSleep() {
+	JustSleep()
+}
+
 func (c *Context) Abort(fn func() bool) {
 	c.abort = fn
 }
