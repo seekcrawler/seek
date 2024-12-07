@@ -68,7 +68,9 @@ func WitPreloadTime(t time.Duration) Option {
 func Request(rawUrl string, options ...Option) error {
 	c := newCrawler()
 	defer func() {
+		log.Infof("prepare close crawer")
 		c.close()
+		log.Infof("prepare close crawer done")
 	}()
 	return c.Run(rawUrl, options...)
 }
@@ -76,8 +78,9 @@ func Request(rawUrl string, options ...Option) error {
 func newCrawler() *crawler {
 	return &crawler{
 		visitUrl: make(chan RawUrl),
-		done:     make(chan error),
-		data:     make(chan any),
+		done:     make(chan error, 1024), // TODO, for channel close
+		data:     make(chan any, 1024),
+		hasDone:  atomic.NewBool(false),
 	}
 }
 
@@ -86,7 +89,7 @@ type crawler struct {
 	done      chan error
 	extractor *Extractor
 	data      chan any
-	hasDone   atomic.Bool
+	hasDone   *atomic.Bool // TODO
 }
 
 func (c *crawler) close() {
@@ -95,10 +98,11 @@ func (c *crawler) close() {
 		close(c.done)
 		close(c.data)
 	}
-	log.Infof("close crawler")
+	log.Infof("close crawler: %v", c.hasDone.Load())
 }
 
 func (c *crawler) sendDone(err error) {
+	fmt.Println("hasDone:", c.hasDone.Load())
 	if !c.hasDone.Load() {
 		c.done <- err
 	}

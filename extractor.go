@@ -63,8 +63,8 @@ type Extractor struct {
 	*baseScroller
 	url      url.URL
 	wd       selenium.WebDriver
-	hasEnd   atomic.Bool
-	hasClose atomic.Bool
+	hasEnd   *atomic.Bool
+	hasClose *atomic.Bool
 	errC     chan error
 	stopC    chan struct{}
 	crawler  *crawler
@@ -145,6 +145,8 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL, timeout time.
 	extractor.wd = wd
 	extractor.url = url
 	extractor.timeout = timeout
+	extractor.hasClose = atomic.NewBool(false)
+	extractor.hasEnd = atomic.NewBool(false)
 	if extractor.stopC == nil {
 		extractor.stopC = make(chan struct{})
 	}
