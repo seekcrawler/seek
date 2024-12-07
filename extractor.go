@@ -144,7 +144,7 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL) {
 }
 
 func (p *Extractor) close() {
-	log.Debugf("close extractor, url: %s", p.url.String())
+	//log.Debugf("close extractor, url: %s", p.url.String())
 	if p.hasClose.CompareAndSwap(false, true) {
 		close(p.stopC)
 		close(p.errC)
@@ -220,7 +220,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 	}
 	for {
 		if p.hasEnd.Load() {
-			log.Infof("cancel find element, by: %s selector: %s", by, selector)
+			//log.Infof("cancel find element, by: %s selector: %s", by, selector)
 			return Element{
 				err: ExtractorStoppedErr,
 			}

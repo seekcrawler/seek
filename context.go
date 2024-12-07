@@ -17,6 +17,10 @@ func (c *Context) JustSleep() {
 	JustSleep()
 }
 
+func (c *Context) JustThink() {
+	JustThink()
+}
+
 func (c *Context) Abort(fn func() bool) {
 	c.abort = fn
 }

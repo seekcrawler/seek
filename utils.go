@@ -53,19 +53,19 @@ func randInt(min, max int) int {
 }
 
 func JustSleep() {
-	t := time.Duration(randInt(1, 3)) * time.Millisecond
+	t := time.Duration(randInt(1, 3)) * time.Second
 	log.Debugf("just sleep: %s", t)
 	time.Sleep(t)
 }
 
-func SleepForSlowOperation() {
-	t := time.Duration(randInt(5, 15)) * time.Millisecond
+func JustThink() {
+	t := time.Duration(randInt(5, 15)) * time.Second
 	log.Debugf("sleep: %s for slow operation", t)
 	time.Sleep(t)
 }
 
 func SleepRandSeconds(min, max int) {
-	t := time.Duration(randInt(min, max)) * time.Millisecond
+	t := time.Duration(randInt(min, max)) * time.Second
 	log.Debugf("sleep rand time: %s", t)
 	time.Sleep(t)
 }
