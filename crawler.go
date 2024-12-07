@@ -7,9 +7,9 @@ import (
 	"github.com/gozelle/logger"
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
+	"go.uber.org/atomic"
 	"net/url"
 	"os"
-	"sync/atomic"
 	"time"
 )
 
@@ -24,7 +24,7 @@ type Conf struct {
 	router      *Router
 	dataHandler func(dataC chan any)
 	timeout     time.Duration
-	urlMode     URLMode
+	PreloadTime time.Duration // for page reload with updating query params, like: /page => /page?name=123
 }
 
 type Option func(c *Conf)
@@ -59,9 +59,9 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
-func WithUrlMode(mode URLMode) Option {
+func WitPreloadTime(t time.Duration) Option {
 	return func(c *Conf) {
-		c.urlMode = mode
+		c.PreloadTime = t
 	}
 }
 
@@ -217,6 +217,7 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 			kCtx := &Context{
 				URL:     *u,
 				Context: ctx,
+				Logger:  prepareLogger(ctx),
 			}
 			if conf.router == nil {
 				c.sendDone(fmt.Errorf("router is nil"))
@@ -236,7 +237,7 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 					kCtx.handlers = append(kCtx.handlers, conf.router.defaultHandler)
 				}
 			}
-			err = c.extractor.Start(kCtx)
+			err = c.extractor.Run(kCtx, conf.PreloadTime)
 			if err != nil {
 				c.sendDone(err)
 				return

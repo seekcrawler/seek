@@ -1,12 +1,17 @@
 package kraken
 
 import (
+	"context"
 	"fmt"
+	"github.com/gozelle/logger"
+	"github.com/lithammer/shortuuid"
 	"golang.org/x/exp/rand"
 	"net"
 	"path"
 	"time"
 )
+
+const ()
 
 func assert1(guard bool, text string) {
 	if !guard {
@@ -90,4 +95,18 @@ func fixTimeDuration(d time.Duration) time.Duration {
 		return DefaultExtractorTimeout
 	}
 	return d
+}
+
+func getRequestId(ctx context.Context) string {
+	if ctx.Value(RequestIdKey) != nil {
+		id, ok := ctx.Value(RequestIdKey).(string)
+		if ok {
+			return id
+		}
+	}
+	return shortuuid.New()
+}
+
+func prepareLogger(ctx context.Context) *logger.Logger {
+	return logger.NewLogger(fmt.Sprintf("%s:%s", ExtractorLogModule, getRequestId(ctx)))
 }

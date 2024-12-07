@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/tebeka/selenium"
+	"go.uber.org/atomic"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -15,7 +15,6 @@ var (
 	DriverPath                  = ""
 	DefaultExtractorTimeout     = 5 * time.Minute
 	DefaultCheckElementInterval = 100 * time.Millisecond
-	DefaultPageStableInterval   = 2 * time.Second
 )
 
 const minExtractorTimeout = 0
@@ -28,6 +27,11 @@ var (
 
 var (
 	handlerNotFoundErr = errors.New("handler not found")
+)
+
+var (
+	RequestIdKey       = "kraken-request-id"
+	ExtractorLogModule = "extractor"
 )
 
 type extractorStatus int
@@ -47,13 +51,6 @@ const (
 	ByTagName         By = "tag name"
 	ByClassName       By = "class name"
 	ByCSSSelector     By = "css selector"
-)
-
-type URLMode int
-
-const (
-	FullPath URLMode = iota
-	PathOnly
 )
 
 type Runner func(ctx *Extractor)
@@ -106,10 +103,18 @@ func (p *Extractor) Ping(timeout ...time.Duration) {
 	return
 }
 
-func (p *Extractor) Start(ctx *Context) (err error) {
+func (p *Extractor) Run(ctx *Context, preloadTime time.Duration) (err error) {
 	defer func() {
 		p.close()
 	}()
+
+	if preloadTime > 0 {
+		time.Sleep(preloadTime)
+		if p.hasClose.Load() {
+			log.Debugf("extractor url: %s close when prelaod", p.url.String())
+			return
+		}
+	}
 
 	p.ctx = ctx
 	p.timer = time.NewTimer(fixTimeDuration(p.timeout))
