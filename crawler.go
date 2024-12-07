@@ -18,6 +18,7 @@ var log = logger.NewLogger("crawler")
 type RawUrl string
 
 type Conf struct {
+	ctx         context.Context
 	debug       bool
 	chromeArgs  []string
 	router      *Router
@@ -26,6 +27,12 @@ type Conf struct {
 }
 
 type Option func(c *Conf)
+
+func WithContext(ctx context.Context) Option {
+	return func(c *Conf) {
+		c.ctx = ctx
+	}
+}
 
 func WithChromeArgs(args []string) Option {
 	return func(c *Conf) {
@@ -51,12 +58,12 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
-func Request(ctx context.Context, rawUrl string, options ...Option) error {
+func Request(rawUrl string, options ...Option) error {
 	c := newCrawler()
 	defer func() {
 		c.close()
 	}()
-	return c.Run(ctx, rawUrl, options...)
+	return c.Run(rawUrl, options...)
 }
 
 func newCrawler() *crawler {
@@ -92,6 +99,8 @@ func (c *crawler) sendDone(err error) {
 
 func (c *crawler) defaultConf() *Conf {
 	return &Conf{
+		ctx:   context.Background(),
+		debug: false,
 		chromeArgs: []string{
 			"--no-sandbox",
 			"--headless",    // 无头模式运行
@@ -101,10 +110,13 @@ func (c *crawler) defaultConf() *Conf {
 			"--high-dpi-support=1.0",        // 避免在Linux环境下出现错误，可选
 			"--disable-dev-shm-usage",       // 避免在Linux环境下出现错误，可选
 		},
+		router:      nil,
+		dataHandler: nil,
+		timeout:     DefaultExtractorTimeout,
 	}
 }
 
-func (c *crawler) Run(ctx context.Context, rawUrl string, options ...Option) (err error) {
+func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 	conf := c.defaultConf()
 	for _, option := range options {
 		option(conf)
@@ -149,7 +161,7 @@ func (c *crawler) Run(ctx context.Context, rawUrl string, options ...Option) (er
 		}()
 	}
 
-	go c.exec(ctx, conf, wd)
+	go c.exec(conf.ctx, conf, wd)
 	go c.watchUrlChange(wd)
 	err = wd.Get(rawUrl)
 	if err != nil {

@@ -1,7 +1,6 @@
 package kraken_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/gozelle/fs"
@@ -303,7 +302,7 @@ func TestCrawler(t *testing.T) {
 	//router.Handle("/:username", UserHome)
 	//router.Handle("/:username/following", UserFollowing)
 
-	err = kraken.Request(context.Background(), "https://x.com/elonmusk",
+	err = kraken.Request("https://x.com/elonmusk",
 		kraken.WithChromeArgs([]string{
 			//"--no-sandbox",
 			//"--headless",    // 无头模式运行
