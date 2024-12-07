@@ -71,6 +71,10 @@ func (p Element) Text() (test string, err error) {
 	return p.elem.Text()
 }
 
+func (p Element) Screenshot(scroll bool) ([]byte, error) {
+	return p.elem.Screenshot(scroll)
+}
+
 func (p Element) Click() error {
 	if p.err != nil {
 		return p.err

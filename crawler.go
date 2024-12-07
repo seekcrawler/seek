@@ -59,7 +59,7 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
-func WitPreloadTime(t time.Duration) Option {
+func WithPreloadTime(t time.Duration) Option {
 	return func(c *Conf) {
 		c.PreloadTime = t
 	}
