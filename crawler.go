@@ -47,6 +47,12 @@ func WithRouter(router *Router) Option {
 	}
 }
 
+func WithDebug(debug bool) Option {
+	return func(c *Conf) {
+		c.debug = debug
+	}
+}
+
 func WithDataHandler(handler func(dataC chan any)) Option {
 	return func(c *Conf) {
 		c.dataHandler = handler

@@ -2,6 +2,7 @@ package kraken
 
 import (
 	"fmt"
+	"github.com/lithammer/shortuuid"
 	"github.com/tebeka/selenium"
 	"time"
 )
@@ -82,19 +83,55 @@ func (p Element) Click() error {
 	return p.elem.Click()
 }
 
-func (p Element) MouseHover() (err error) {
-	_, err = p.wd.ExecuteScript(prepareEventScript("mouseover"), []interface{}{p.elem})
+func (p Element) Href() (string, error) {
+	return p.elem.GetAttribute("href")
+}
+
+func (p Element) MouseOver() (err error) {
+	if p.err != nil {
+		return p.err
+	}
+	offset, err := p.elem.Location()
 	if err != nil {
 		return
 	}
+	p.wd.StorePointerActions(shortuuid.New(),
+		selenium.MousePointer,
+		selenium.PointerMoveAction(0, *offset, selenium.FromViewport),
+	)
+	err = p.wd.PerformActions()
+	if err != nil {
+		return
+	}
+	_ = p.wd.ReleaseActions()
+	//_, err = p.wd.ExecuteScript(prepareEventScript("mouseover"), []interface{}{p.elem})
+	//if err != nil {
+	//	return
+	//}
 	return
 }
 
 func (p Element) MouseOut() (err error) {
-	_, err = p.wd.ExecuteScript(prepareEventScript("mouseout"), []interface{}{p.elem})
+	if p.err != nil {
+		return p.err
+	}
+	offset := selenium.Point{
+		X: 0,
+		Y: 0,
+	}
+	p.wd.StorePointerActions(shortuuid.New(),
+		selenium.MousePointer,
+		selenium.PointerMoveAction(0, offset, selenium.FromViewport),
+	)
+	err = p.wd.PerformActions()
 	if err != nil {
 		return
 	}
+	_ = p.wd.ReleaseActions()
+	//_, err = p.wd.ExecuteScript(prepareEventScript("mouseout"), []interface{}{p.elem})
+	//if err != nil {
+	//	return
+	//}
 	return
 }
 
