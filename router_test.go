@@ -19,47 +19,37 @@ func TestEngine(t *testing.T) {
 
 	engine := NewRouter(func(c *Context) {})
 
-	engine.Handle("/hello", func(c *Context) {
-		fmt.Println("Hello world")
+	engine.Handle("/i/flow/login", func(c *Context) {
+		fmt.Println("/i/flow/login")
 	})
 
-	group := engine.Group("/hello")
-	group.Handle("/sub", func(context *Context) {
-		fmt.Println("sub handler")
+	engine.Handle("/:username", func(c *Context) {
+		fmt.Println("/:username", c.Params)
 	})
-
-	engine.Handle("/user/:name", func(c *Context) {
-		fmt.Println(c.Params)
-		fmt.Println("Hello user")
-	})
-	engine.Handle("/user/:name/:id", func(c *Context) {
-		fmt.Println(c.Params)
-		fmt.Println("Hello user id")
+	engine.Handle("/:username/following", func(c *Context) {
+		fmt.Println("/:username/following", c.Params)
 	})
 
 	{
-		u, _ := url.Parse("http://example.com/hello?name=123")
-		err := engine.handle(&Context{
-			URL: *u,
-		})
-		require.NoError(t, err)
-
-	}
-	{
-		u, _ := url.Parse("http://example.com/user/tom/123?name=123")
+		u, _ := url.Parse("http://example.com/i/flow/login?name=123")
 		err := engine.handle(&Context{
 			URL: *u,
 		})
 		require.NoError(t, err)
 	}
-
 	{
-		u, _ := url.Parse("http://example.com/hello/sub?name=123")
+		u, _ := url.Parse("http://example.com/elonmusk?name=123")
 		err := engine.handle(&Context{
 			URL: *u,
 		})
 		require.NoError(t, err)
 	}
-
+	{
+		u, _ := url.Parse("http://example.com/elonmusk/following?name=123")
+		err := engine.handle(&Context{
+			URL: *u,
+		})
+		require.NoError(t, err)
+	}
 	time.Sleep(3 * time.Second)
 }

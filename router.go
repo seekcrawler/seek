@@ -71,6 +71,9 @@ func (engine *Router) prepareContext(c *Context, extractor *Extractor) (err erro
 	c.reset()
 	c.Extractor = extractor
 
+	params := make(Params, 0, engine.maxParams)
+	skip := make([]skippedNode, 0, engine.maxSections)
+
 	// Find root of the tree for the given HTTP method
 	t := engine.trees
 	for i, tl := 0, len(t); i < tl; i++ {
@@ -79,9 +82,7 @@ func (engine *Router) prepareContext(c *Context, extractor *Extractor) (err erro
 		}
 		root := t[i].root
 		// Find route in tree
-		var params = new(Params)
-		var skip = new([]skippedNode)
-		value := root.getValue(rPath, params, skip, unescape)
+		value := root.getValue(rPath, &params, &skip, unescape)
 		if value.params != nil {
 			c.Params = *value.params
 		}
