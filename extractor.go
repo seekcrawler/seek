@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	DriverPath              = ""
-	DefaultExtractorTimeout = 5 * time.Minute
-	CheckElementInterval    = 100 * time.Millisecond
+	DriverPath                  = ""
+	DefaultExtractorTimeout     = 5 * time.Minute
+	DefaultCheckElementInterval = 100 * time.Millisecond
+	DefaultPageStableInterval   = 2 * time.Second
 )
 
 const minExtractorTimeout = 0
@@ -46,6 +47,13 @@ const (
 	ByTagName         By = "tag name"
 	ByClassName       By = "class name"
 	ByCSSSelector     By = "css selector"
+)
+
+type URLMode int
+
+const (
+	FullPath URLMode = iota
+	PathOnly
 )
 
 type Runner func(ctx *Extractor)
@@ -212,7 +220,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 				err: ElementNotFoundErr,
 			}
 		}
-		time.Sleep(CheckElementInterval)
+		time.Sleep(DefaultCheckElementInterval)
 	}
 }
 
@@ -260,7 +268,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 				err: ElementNotFoundErr,
 			}
 		}
-		time.Sleep(CheckElementInterval)
+		time.Sleep(DefaultCheckElementInterval)
 	}
 }
 
@@ -280,7 +288,7 @@ func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie sel
 			err = TimoutErr
 			return
 		}
-		time.Sleep(CheckElementInterval)
+		time.Sleep(DefaultCheckElementInterval)
 	}
 }
 

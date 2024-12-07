@@ -62,7 +62,7 @@ func (s baseScroller) WaitScrollHeightIncreased(previous int64, timeout ...time.
 		if time.Since(start) > _timeout {
 			return TimoutErr
 		}
-		s.wait(CheckElementInterval)
+		s.wait(DefaultCheckElementInterval)
 	}
 }
 

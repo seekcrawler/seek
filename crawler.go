@@ -24,6 +24,7 @@ type Conf struct {
 	router      *Router
 	dataHandler func(dataC chan any)
 	timeout     time.Duration
+	urlMode     URLMode
 }
 
 type Option func(c *Conf)
@@ -55,6 +56,12 @@ func WithDataHandler(handler func(dataC chan any)) Option {
 func WithTimeout(timeout time.Duration) Option {
 	return func(c *Conf) {
 		c.timeout = timeout
+	}
+}
+
+func WithUrlMode(mode URLMode) Option {
+	return func(c *Conf) {
+		c.urlMode = mode
 	}
 }
 

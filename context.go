@@ -3,17 +3,19 @@ package kraken
 import (
 	"context"
 	"errors"
+	"github.com/gozelle/logger"
 	"net/url"
 )
 
 type Context struct {
+	context.Context
 	*Extractor
+	*logger.Logger
 	URL      url.URL
 	Params   Params
 	handlers HandlersChain
 	index    int8
 	abort    func() bool
-	context.Context
 }
 
 func (c *Context) JustWait() {
