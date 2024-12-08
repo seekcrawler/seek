@@ -76,7 +76,7 @@ func SleepRandSeconds(min, max int) {
 }
 
 func prepareEventScript(event string) string {
-	return fmt.Sprintf("const event = new MouseEvent('%s', { bubbles:true,cancelable:true,view: window}); arguments[0].dispatchEvent(event);", event)
+	return fmt.Sprintf("const event = new MouseEvent('%s', { bubbles:true,cancelable:true}); arguments[0].dispatchEvent(event);", event)
 }
 
 func calcTimeDuration(timeout []time.Duration) time.Duration {

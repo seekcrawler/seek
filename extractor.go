@@ -13,8 +13,10 @@ import (
 
 var (
 	DriverPath                  = ""
-	DefaultExtractorTimeout     = 5 * time.Minute
-	DefaultCheckElementInterval = 100 * time.Millisecond
+	//SeleniumPath = "./drivers/selenium-java-4.27.0/selenium-firefox-driver-4.27.0.jar"
+	SeleniumPath = "./drivers/selenium-server-standalone-3.5.3.jar"
+	DefaultExtractorTimeout     = 2 * time.Minute
+	DefaultCheckElementInterval = 1 * time.Second
 )
 
 const minExtractorTimeout = 0
@@ -232,15 +234,18 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 }
 
 func (p *Extractor) FindElement(by By, selector string, timeout ...time.Duration) Element {
-	return p.findElement(nil, by, selector, calcTimeDuration(timeout))
+	return p.findElement(nil, by, selector, nil, calcTimeDuration(timeout))
+}
 
+func (p *Extractor) FindEementWithPolling(by By, selector string, poll func(), timeout ...time.Duration) Element {
+	return p.findElement(nil, by, selector, poll, calcTimeDuration(timeout))
 }
 
 type iFindElement interface {
 	FindElement(by, value string) (selenium.WebElement, error)
 }
 
-func (p *Extractor) findElement(parent iFindElement, by By, selector string, timeout time.Duration) Element {
+func (p *Extractor) findElement(parent iFindElement, by By, selector string, poll func(), timeout time.Duration) Element {
 	timeout = fixTimeDuration(timeout)
 	start := time.Now()
 	if parent == nil {
@@ -252,6 +257,9 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 			return Element{
 				err: ExtractorStoppedErr,
 			}
+		}
+		if poll != nil {
+			poll()
 		}
 		elem, err := parent.FindElement(string(by), selector)
 		if err == nil {

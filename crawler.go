@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"github.com/gozelle/logger"
 	"github.com/tebeka/selenium"
-	"github.com/tebeka/selenium/chrome"
+	"github.com/tebeka/selenium/firefox"
 	"go.uber.org/atomic"
 	"net/url"
-	"os"
 	"time"
 )
 
@@ -25,6 +24,8 @@ type Conf struct {
 	dataHandler func(dataC chan any)
 	timeout     time.Duration
 	PreloadTime time.Duration // for page reload with updating query params, like: /page => /page?name=123
+	firefoxArgs []string
+	userAgent   string
 }
 
 type Option func(c *Conf)
@@ -38,6 +39,18 @@ func WithContext(ctx context.Context) Option {
 func WithChromeArgs(args []string) Option {
 	return func(c *Conf) {
 		c.chromeArgs = args
+	}
+}
+
+func WithFireFoxArgs(args []string) Option {
+	return func(c *Conf) {
+		c.firefoxArgs = args
+	}
+}
+
+func WithUserAgnet(agent string) Option {
+	return func(c *Conf) {
+		c.userAgent = agent
 	}
 }
 
@@ -106,7 +119,6 @@ func (c *crawler) close() {
 }
 
 func (c *crawler) sendDone(err error) {
-	fmt.Println("hasDone:", c.hasDone.Load())
 	if !c.hasDone.Load() {
 		c.done <- err
 	}
@@ -125,6 +137,9 @@ func (c *crawler) defaultConf() *Conf {
 			"--high-dpi-support=1.0",        // 避免在Linux环境下出现错误，可选
 			"--disable-dev-shm-usage",       // 避免在Linux环境下出现错误，可选
 		},
+		firefoxArgs: []string{
+			"--headless",
+		},
 		router:      nil,
 		dataHandler: nil,
 		timeout:     DefaultExtractorTimeout,
@@ -137,10 +152,11 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		option(conf)
 	}
 
-	var opts []selenium.ServiceOption
-	if conf.debug {
-		opts = append(opts, selenium.Output(os.Stdout))
-		selenium.SetDebug(true)
+	// 启动 Selenium 服务
+	opts := []selenium.ServiceOption{
+		//selenium.StartFrameBuffer(),
+		selenium.GeckoDriver(DriverPath),
+		selenium.Output(nil), // 可选，日志输出
 	}
 
 	port, err := getActivePort()
@@ -148,20 +164,29 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		return
 	}
 
-	service, err := selenium.NewChromeDriverService(DriverPath, port, opts...)
+	service, err := selenium.NewSeleniumService(SeleniumPath, port, opts...)
 	if err != nil {
-		err = fmt.Errorf("failed to start ChromeDriverService: %w", err)
+		log.Errorf("starting the Selenium server error: %v", err)
 		return
 	}
 	defer func() {
 		_ = service.Stop()
 	}()
 
-	caps := selenium.Capabilities{"browserName": "chrome"}
-	chromeCaps := chrome.Capabilities{
-		Args: conf.chromeArgs,
+	firefoxCaps := firefox.Capabilities{
+		Args:  conf.firefoxArgs,
+		Prefs: map[string]interface{}{},
 	}
-	caps.AddChrome(chromeCaps)
+
+	if conf.userAgent != "" {
+		firefoxCaps.Prefs["general.useragent.override"] = conf.userAgent
+	}
+	caps := selenium.Capabilities{
+		"browserName": "firefox",
+	}
+	caps.AddFirefox(firefoxCaps)
+
+	log.Debugf("prepare to new remote")
 	wd, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
 	if err != nil {
 		return
