@@ -3,6 +3,8 @@ package kraken
 import (
 	"context"
 	"errors"
+	"github.com/gozelle/async"
+	"github.com/gozelle/async/race"
 	"github.com/gozelle/logger"
 	"net/url"
 )
@@ -80,10 +82,23 @@ func (c *Context) Next() (err error) {
 	return nil
 }
 
-func (c *Context) Async(func()) {
-
-}
-
-func (c *Context) Wait() {
-
+func (c *Context) Race(runners ...func() error) (err error) {
+	if len(runners) == 0 {
+		return
+	}
+	var _runners []*race.Runner[async.Null]
+	for _, v := range runners {
+		_runners = append(_runners, &race.Runner[async.Null]{
+			Delay: 0,
+			Runner: func(ctx context.Context) (async.Null, error) {
+				e := v()
+				return nil, e
+			},
+		})
+	}
+	_, err = race.Run[async.Null](
+		c.ctx.Context,
+		_runners,
+	)
+	return err
 }

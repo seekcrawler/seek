@@ -17,6 +17,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.3.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gozelle/async v0.2.6 // indirect
 	github.com/gozelle/isatty v0.0.17 // indirect
 	github.com/lithammer/shortuuid v3.0.0+incompatible // indirect
 	github.com/mediabuyerbot/go-crx3 v1.3.1 // indirect
