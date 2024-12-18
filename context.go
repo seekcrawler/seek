@@ -20,9 +20,6 @@ type Context struct {
 	Params   Params
 	handlers HandlersChain
 	index    int8
-	cancel   context.CancelFunc
-
-	//abort    func() bool
 }
 
 func (c *Context) JustWait() {
@@ -97,7 +94,7 @@ func (c *Context) Race(runners ...func() error) (err error) {
 		})
 	}
 	_, err = race.Run[async.Null](
-		c.ctx.Context,
+		c.Context,
 		_runners,
 	)
 	return err

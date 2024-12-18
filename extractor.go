@@ -1,6 +1,7 @@
 package kraken
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,7 +56,11 @@ const (
 type Runner func(ctx *Extractor)
 
 func NewExtractor() *Extractor {
-	return &Extractor{}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Extractor{
+		cancelCtx: ctx,
+		cancel:    cancel,
+	}
 }
 
 type Extractor struct {
@@ -69,7 +74,14 @@ type Extractor struct {
 	crawler *crawler
 	//timeout time.Duration
 	//timer *time.Timer
-	ctx *Context
+	*Context
+	cancelCtx context.Context
+	cancel    context.CancelFunc
+	canceled  bool
+}
+
+func (e *Extractor) HasCanceled() bool {
+	return e.canceled
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -115,7 +127,7 @@ func (p *Extractor) Run(ctx *Context, preloadTime time.Duration) (err error) {
 		//}
 	}
 
-	p.ctx = ctx
+	p.Context = ctx
 	//p.timer = time.NewTimer(fixTimeDuration(p.timeout))
 
 	log.Infof("run extractor, url: %s handlers: %d", p.url.String(), len(ctx.handlers))
@@ -154,10 +166,10 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL, timeout time.
 	//}
 	if extractor.baseScroller == nil {
 		extractor.baseScroller = &baseScroller{
-			wd:   wd,
-			args: nil,
-			wait: extractor.Wait,
-			ctx:  extractor.ctx,
+			wd:        wd,
+			args:      nil,
+			wait:      extractor.Wait,
+			cancelCtx: extractor.cancelCtx,
 			scrollTopElem: func() string {
 				return "window"
 			},
@@ -195,7 +207,7 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 	}
 	for {
 		select {
-		case <-p.ctx.Context.Done():
+		case <-p.cancelCtx.Done():
 			return Elements{
 				err: ContextCancelErr,
 			}
@@ -242,7 +254,7 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 	}
 	for {
 		select {
-		case <-p.ctx.Context.Done():
+		case <-p.cancelCtx.Done():
 			return Element{
 				err: ContextCancelErr,
 			}
@@ -276,7 +288,7 @@ func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie sel
 	start := time.Now()
 	for {
 		select {
-		case <-p.ctx.Context.Done():
+		case <-p.cancelCtx.Done():
 			err = ContextCancelErr
 			return
 		default:

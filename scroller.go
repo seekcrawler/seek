@@ -1,6 +1,7 @@
 package kraken
 
 import (
+	"context"
 	"fmt"
 	"github.com/tebeka/selenium"
 	"time"
@@ -23,7 +24,7 @@ type baseScroller struct {
 	scrollTopElem    func() string
 	scrollBottomElem func() (string, string)
 	scrollHeightElem func() string
-	ctx              *Context
+	cancelCtx        context.Context
 }
 
 func (s baseScroller) ScrollTop() error {

@@ -8,10 +8,10 @@ import (
 
 func newElement(wd selenium.WebDriver, elem selenium.WebElement, extractor *Extractor) Element {
 	return Element{wd: wd, elem: elem, extractor: extractor, baseScroller: &baseScroller{
-		wd:   wd,
-		args: []any{elem},
-		wait: extractor.Wait,
-		ctx:  extractor.ctx,
+		wd:        wd,
+		args:      []any{elem},
+		wait:      extractor.Wait,
+		cancelCtx: extractor.cancelCtx,
 		scrollTopElem: func() string {
 			return "arguments[0]"
 		},
@@ -152,7 +152,7 @@ func (s baseScroller) AutoWheelScrollBottom(params AutoWheelScrollBottomParams) 
 	var y = int64(0)
 	for {
 		select {
-		case <-s.ctx.Context.Done():
+		case <-s.cancelCtx.Done():
 			err = ContextCancelErr
 			return
 		default:

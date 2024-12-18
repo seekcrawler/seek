@@ -25,6 +25,7 @@ type Conf struct {
 	dataHandler func(dataC chan any)
 	timeout     time.Duration
 	PreloadTime time.Duration // for page reload with updating query params, like: /page => /page?name=123
+	webDriver   selenium.WebDriver
 }
 
 type Option func(c *Conf)
@@ -71,6 +72,12 @@ func WithPreloadTime(t time.Duration) Option {
 	}
 }
 
+func WithWebDriver(webDriver selenium.WebDriver) Option {
+	return func(c *Conf) {
+		c.webDriver = webDriver
+	}
+}
+
 func Request(rawUrl string, options ...Option) error {
 	c := newCrawler()
 	defer func() {
@@ -106,7 +113,6 @@ func (c *crawler) close() {
 }
 
 func (c *crawler) sendDone(err error) {
-	fmt.Println("hasDone:", c.hasDone.Load())
 	if !c.hasDone.Load() {
 		c.done <- err
 	}
@@ -143,31 +149,37 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		selenium.SetDebug(true)
 	}
 
-	port, err := getActivePort()
-	if err != nil {
-		return
+	if conf.webDriver == nil {
+		var port int
+		port, err = getActivePort()
+		if err != nil {
+			return
+		}
+
+		var service *selenium.Service
+		service, err = selenium.NewChromeDriverService(DriverPath, port, opts...)
+		if err != nil {
+			err = fmt.Errorf("failed to start ChromeDriverService: %w", err)
+			return
+		}
+		defer func() {
+			_ = service.Stop()
+		}()
+
+		caps := selenium.Capabilities{"browserName": "chrome"}
+		chromeCaps := chrome.Capabilities{
+			Args: conf.chromeArgs,
+		}
+		caps.AddChrome(chromeCaps)
+
+		conf.webDriver, err = selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
+		if err != nil {
+			return
+		}
 	}
 
-	service, err := selenium.NewChromeDriverService(DriverPath, port, opts...)
-	if err != nil {
-		err = fmt.Errorf("failed to start ChromeDriverService: %w", err)
-		return
-	}
 	defer func() {
-		_ = service.Stop()
-	}()
-
-	caps := selenium.Capabilities{"browserName": "chrome"}
-	chromeCaps := chrome.Capabilities{
-		Args: conf.chromeArgs,
-	}
-	caps.AddChrome(chromeCaps)
-	wd, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
-	if err != nil {
-		return
-	}
-	defer func() {
-		_ = wd.Quit()
+		_ = conf.webDriver.Quit()
 	}()
 
 	if conf.dataHandler != nil {
@@ -176,9 +188,9 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		}()
 	}
 
-	go c.exec(conf.ctx, conf, wd)
-	go c.watchUrlChange(wd)
-	err = wd.Get(rawUrl)
+	go c.exec(conf.ctx, conf, conf.webDriver)
+	go c.watchUrlChange(conf.webDriver)
+	err = conf.webDriver.Get(rawUrl)
 	if err != nil {
 		err = fmt.Errorf("request url: %s error: %s", rawUrl, err)
 		return
@@ -210,8 +222,8 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 				c.sendDone(fmt.Errorf("parse url error: %w", err))
 				return
 			}
-			if c.extractor != nil && c.extractor.ctx != nil && c.extractor.ctx.Context != nil {
-				ctx = c.extractor.ctx.Context
+			if c.extractor != nil && c.extractor.Context != nil && c.extractor.Context.Context != nil {
+				ctx = c.extractor.Context.Context
 			}
 			c.extractor = NewExtractor()
 			initExtractor(c, wd, *u, conf.timeout)
@@ -222,13 +234,10 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 				return
 			}
 
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithCancel(ctx)
 			kCtx := &Context{
 				URL:     *u,
 				Context: ctx,
 				Logger:  prepareLogger(ctx),
-				cancel:  cancel,
 			}
 			if conf.router == nil {
 				c.sendDone(fmt.Errorf("router is nil"))
@@ -252,7 +261,7 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 
 			go func() {
 				e := c.extractor.Run(kCtx, conf.PreloadTime)
-				if e != nil {
+				if e != nil && !errors.Is(e, ContextCancelErr) {
 					c.sendDone(e)
 					return
 				}
@@ -290,10 +299,11 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 				if currentUrl == "" || currentUrl == emptyUrl {
 					log.Infof("load url: %s", newUrl)
 				} else {
-					log.Infof("url changeed, previous: %s, now: %s", currentUrl, newUrl)
+					log.Infof("url changeed, previous: %s, new url: %s", currentUrl, newUrl)
 				}
-				if c.extractor != nil {
-					c.extractor.ctx.cancel()
+				if c.extractor != nil && c.extractor.cancel != nil {
+					c.extractor.cancel()
+					c.extractor.canceled = true
 				}
 				c.visitUrl <- RawUrl(newUrl)
 				currentUrl = newUrl
