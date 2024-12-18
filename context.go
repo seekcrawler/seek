@@ -7,6 +7,9 @@ import (
 	"net/url"
 )
 
+type HandlerFunc func(*Context) error
+type HandlersChain []HandlerFunc
+
 type Context struct {
 	context.Context
 	*Extractor
@@ -15,7 +18,7 @@ type Context struct {
 	Params   Params
 	handlers HandlersChain
 	index    int8
-	abort    func() bool
+	//abort    func() bool
 }
 
 func (c *Context) JustWait() {
@@ -26,9 +29,9 @@ func (c *Context) JustThink() {
 	JustThink()
 }
 
-func (c *Context) Abort(fn func() bool) {
-	c.abort = fn
-}
+//func (c *Context) Abort(fn func() bool) {
+//	c.abort = fn
+//}
 
 func (c *Context) HandleData(data any) {
 	if c.Extractor != nil {
@@ -52,34 +55,33 @@ func (c *Context) reset() {
 	c.index = -1
 }
 
-func (c *Context) stop() {
-	if c.Extractor != nil {
-		c.Extractor.stop()
-	}
-}
+//func (c *Context) stop() {
+//	if c.Extractor != nil {
+//		c.Extractor.stop()
+//	}
+//}
 
 // Next should be used only inside middleware.
 // It executes the pending handlers in the chain inside the calling handler.
 // See example in GitHub.
-func (c *Context) Next() {
+func (c *Context) Next() (err error) {
 	c.index++
 	for c.index < int8(len(c.handlers)) {
 		if c.handlers[c.index] != nil {
-			index := c.index
-			abort := false
-			if c.abort != nil {
-				abort = c.abort()
-			}
-			if abort {
-				c.stop()
-			} else {
-				c.handlers[index](c)
+			err = c.handlers[c.index](c)
+			if err != nil {
+				return
 			}
 		}
 		c.index++
 	}
-	c.stop()
+	return nil
 }
 
-type HandlerFunc func(*Context)
-type HandlersChain []HandlerFunc
+func (c *Context) Async(func()) {
+
+}
+
+func (c *Context) Wait() {
+
+}

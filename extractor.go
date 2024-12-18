@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/tebeka/selenium"
-	"go.uber.org/atomic"
 	"net/url"
 	"strings"
 	"time"
@@ -61,16 +60,16 @@ func NewExtractor() *Extractor {
 
 type Extractor struct {
 	*baseScroller
-	url      url.URL
-	wd       selenium.WebDriver
-	hasEnd   *atomic.Bool
-	hasClose *atomic.Bool
-	errC     chan error
-	stopC    chan struct{}
-	crawler  *crawler
-	timeout  time.Duration
-	timer    *time.Timer
-	ctx      *Context
+	url url.URL
+	wd  selenium.WebDriver
+	//hasEnd   *atomic.Bool
+	//hasClose *atomic.Bool
+	//errC     chan error
+	//stopC    chan struct{}
+	crawler *crawler
+	//timeout time.Duration
+	//timer *time.Timer
+	ctx *Context
 }
 
 func (p *Extractor) Wait(t ...time.Duration) {
@@ -92,67 +91,67 @@ func (p *Extractor) CurrentURL() *url.URL {
 }
 
 // Ping to avoid extractor timeout
-func (p *Extractor) Ping(timeout ...time.Duration) {
-	d := calcTimeDuration(timeout)
-	if d <= 0 {
-		d = p.timeout
-	}
-	if p.timer != nil {
-		p.timer.Reset(fixTimeDuration(d))
-	}
-	return
-}
+//func (p *Extractor) Ping(timeout ...time.Duration) {
+//	d := calcTimeDuration(timeout)
+//	if d <= 0 {
+//		d = p.timeout
+//	}
+//	if p.timer != nil {
+//		p.timer.Reset(fixTimeDuration(d))
+//	}
+//	return
+//}
 
 func (p *Extractor) Run(ctx *Context, preloadTime time.Duration) (err error) {
-	defer func() {
-		p.close()
-	}()
+	//defer func() {
+	//	p.close()
+	//}()
 
 	if preloadTime > 0 {
 		time.Sleep(preloadTime)
-		if p.hasClose.Load() {
-			log.Debugf("extractor url: %s close when prelaod", p.url.String())
-			return
-		}
+		//if p.hasClose.Load() {
+		//	log.Debugf("extractor url: %s close when prelaod", p.url.String())
+		//	return
+		//}
 	}
 
 	p.ctx = ctx
-	p.timer = time.NewTimer(fixTimeDuration(p.timeout))
+	//p.timer = time.NewTimer(fixTimeDuration(p.timeout))
 
 	log.Infof("run extractor, url: %s handlers: %d", p.url.String(), len(ctx.handlers))
 
-	go ctx.Next()
+	return ctx.Next()
 
-	select {
-	case <-p.stopC:
-		return
-	case <-p.timer.C:
-		err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
-		return
-	}
+	//select {
+	//case <-p.stopC:
+	//	return
+	//case <-p.timer.C:
+	//	err = fmt.Errorf("run extractor url: %s timeout", p.url.String())
+	//	return
+	//}
 }
 
-func (p *Extractor) stop() {
-	ok := p.hasEnd.CompareAndSwap(false, true)
-	if ok && !p.hasClose.Load() {
-		p.stopC <- struct{}{}
-	}
-}
+//func (p *Extractor) stop() {
+//	ok := p.hasEnd.CompareAndSwap(false, true)
+//	if ok && !p.hasClose.Load() {
+//		p.stopC <- struct{}{}
+//	}
+//}
 
 func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL, timeout time.Duration) {
 	extractor := c.extractor
 	extractor.crawler = c
 	extractor.wd = wd
 	extractor.url = url
-	extractor.timeout = timeout
-	extractor.hasClose = atomic.NewBool(false)
-	extractor.hasEnd = atomic.NewBool(false)
-	if extractor.stopC == nil {
-		extractor.stopC = make(chan struct{})
-	}
-	if extractor.errC == nil {
-		extractor.errC = make(chan error)
-	}
+	//extractor.timeout = timeout
+	//extractor.hasClose = atomic.NewBool(false)
+	//extractor.hasEnd = atomic.NewBool(false)
+	//if extractor.stopC == nil {
+	//	extractor.stopC = make(chan struct{})
+	//}
+	//if extractor.errC == nil {
+	//	extractor.errC = make(chan error)
+	//}
 	if extractor.baseScroller == nil {
 		extractor.baseScroller = &baseScroller{
 			wd:   wd,
@@ -171,13 +170,13 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL, timeout time.
 	}
 }
 
-func (p *Extractor) close() {
-	//log.Debugf("close extractor, url: %s", p.url.String())
-	if p.hasClose.CompareAndSwap(false, true) {
-		close(p.stopC)
-		close(p.errC)
-	}
-}
+//func (p *Extractor) close() {
+//	//log.Debugf("close extractor, url: %s", p.url.String())
+//	if p.hasClose.CompareAndSwap(false, true) {
+//		close(p.stopC)
+//		close(p.errC)
+//	}
+//}
 
 func (p *Extractor) FindElements(by By, selector string, timeout ...time.Duration) Elements {
 	return p.findElements(nil, by, selector, calcTimeDuration(timeout))
@@ -194,12 +193,12 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 		parent = p.wd
 	}
 	for {
-		if p.hasEnd.Load() {
-			log.Infof("cancel find elements, by: %s selector: %s", by, selector)
-			return Elements{
-				err: ExtractorStoppedErr,
-			}
-		}
+		//if p.hasEnd.Load() {
+		//	log.Infof("cancel find elements, by: %s selector: %s", by, selector)
+		//	return Elements{
+		//		err: ExtractorStoppedErr,
+		//	}
+		//}
 		results, err := parent.FindElements(string(by), selector)
 		if err == nil {
 			if len(results) > 0 {
@@ -208,16 +207,9 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 				for _, elem := range results {
 					elems = append(elems, newElement(p.wd, elem, p))
 				}
-				if !p.hasEnd.Load() {
-					return Elements{
-						wd:    p.wd,
-						elems: elems,
-					}
-				} else {
-					log.Infof("ignore to find elemets: by: %s selector: %s", by, selector)
-					return Elements{
-						err: ElementNotFoundErr,
-					}
+				return Elements{
+					wd:    p.wd,
+					elems: elems,
 				}
 			}
 		}
@@ -247,26 +239,19 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 		parent = p.wd
 	}
 	for {
-		if p.hasEnd.Load() {
-			//log.Infof("cancel find element, by: %s selector: %s", by, selector)
-			return Element{
-				err: ExtractorStoppedErr,
-			}
-		}
+		//if p.hasEnd.Load() {
+		//	//log.Infof("cancel find element, by: %s selector: %s", by, selector)
+		//	return Element{
+		//		err: ExtractorStoppedErr,
+		//	}
+		//}
 		elem, err := parent.FindElement(string(by), selector)
 		if err == nil {
 			var isDisplayed bool
 			isDisplayed, err = elem.IsDisplayed()
 			if err == nil && isDisplayed {
 				log.Debugf("find element success, by: %s selector: %s", by, selector)
-				if !p.hasEnd.Load() {
-					return newElement(p.wd, elem, p)
-				} else {
-					log.Infof("ignore find elemet: by: %s selector: %s", by, selector)
-					return Element{
-						err: ElementNotFoundErr,
-					}
-				}
+				return newElement(p.wd, elem, p)
 			}
 		}
 		if time.Since(start) > timeout {

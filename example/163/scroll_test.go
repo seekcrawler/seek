@@ -12,8 +12,8 @@ import (
 var log = logger.NewLogger("neteasy")
 
 func TestScroll(t *testing.T) {
-	Handler := func(c *kraken.Context) {
-		c.AutoScrollBottom(kraken.AutoScrollBottomParams{
+	Handler := func(c *kraken.Context) error {
+		return c.AutoScrollBottom(kraken.AutoScrollBottomParams{
 			RenderInterval: 3 * time.Second,
 			WaitInterval:   2 * time.Second,
 			Handler:        nil,
@@ -44,13 +44,14 @@ func TestScroll(t *testing.T) {
 }
 
 func TestWheelScroll(t *testing.T) {
-	Handler := func(c *kraken.Context) {
+	Handler := func(c *kraken.Context) error {
 		e := c.AutoWheelScrollBottom(kraken.AutoWheelScrollBottomParams{
 			RenderInterval: 3 * time.Second,
 		})
 		if e != nil {
 			log.Errorf("error: %v", e)
 		}
+		return e
 	}
 	dp, err := fs.Lookupwd("./drivers/chromedriver_130_arm64")
 	require.NoError(t, err)

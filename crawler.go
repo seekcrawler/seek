@@ -286,9 +286,9 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 				} else {
 					log.Infof("url changeed, previous: %s, now: %s", currentUrl, newUrl)
 				}
-				if c.extractor != nil {
-					c.extractor.stop()
-				}
+				//if c.extractor != nil {
+				//	c.extractor.stop()
+				//}
 				c.visitUrl <- RawUrl(newUrl)
 				currentUrl = newUrl
 			}
