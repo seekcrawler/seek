@@ -7,6 +7,7 @@ import (
 	"github.com/gozelle/async/race"
 	"github.com/gozelle/logger"
 	"net/url"
+	"time"
 )
 
 type HandlerFunc func(*Context) error
@@ -98,4 +99,23 @@ func (c *Context) Race(runners ...func() error) (err error) {
 		_runners,
 	)
 	return err
+}
+
+func (c *Context) Until(timeout time.Duration, interval time.Duration, handler func() (exit bool, err error)) (err error) {
+	now := time.Now()
+	for {
+		if time.Since(now) > timeout {
+			err = errors.New("timeout")
+			return
+		}
+		var exit bool
+		exit, err = handler()
+		if err != nil {
+			return
+		}
+		if exit {
+			return
+		}
+		time.Sleep(interval)
+	}
 }
