@@ -18,14 +18,14 @@ var log = logger.NewLogger("crawler")
 type RawUrl string
 
 type Conf struct {
-	ctx         context.Context
-	debug       bool
-	chromeArgs  []string
-	router      *Router
-	dataHandler func(dataC chan any)
-	timeout     time.Duration
-	PreloadTime time.Duration // for page reload with updating query params, like: /page => /page?name=123
-	webDriver   selenium.WebDriver
+	ctx           context.Context
+	debug         bool
+	chromeArgs    []string
+	router        *Router
+	dataHandler   func(dataC chan any)
+	timeout       time.Duration
+	PreloadTime   time.Duration // for page reload with updating query params, like: /page => /page?name=123
+	remoteBrowser string
 }
 
 type Option func(c *Conf)
@@ -72,9 +72,9 @@ func WithPreloadTime(t time.Duration) Option {
 	}
 }
 
-func WithWebDriver(webDriver selenium.WebDriver) Option {
+func WithRemoteBrowser(url string) Option {
 	return func(c *Conf) {
-		c.webDriver = webDriver
+		c.remoteBrowser = url
 	}
 }
 
@@ -148,38 +148,44 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		opts = append(opts, selenium.Output(os.Stdout))
 		selenium.SetDebug(true)
 	}
-
-	if conf.webDriver == nil {
-		var port int
+	var service *selenium.Service
+	var port int
+	if conf.remoteBrowser == "" {
 		port, err = getActivePort()
 		if err != nil {
 			return
 		}
-
-		var service *selenium.Service
 		service, err = selenium.NewChromeDriverService(DriverPath, port, opts...)
 		if err != nil {
 			err = fmt.Errorf("failed to start ChromeDriverService: %w", err)
 			return
 		}
-		defer func() {
-			_ = service.Stop()
-		}()
-
-		caps := selenium.Capabilities{"browserName": "chrome"}
-		chromeCaps := chrome.Capabilities{
-			Args: conf.chromeArgs,
-		}
-		caps.AddChrome(chromeCaps)
-
-		conf.webDriver, err = selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
-		if err != nil {
-			return
-		}
 	}
 
 	defer func() {
-		_ = conf.webDriver.Quit()
+		if service != nil {
+			_ = service.Stop()
+		}
+	}()
+
+	caps := selenium.Capabilities{"browserName": "chrome"}
+	chromeCaps := chrome.Capabilities{
+		Args: conf.chromeArgs,
+	}
+	caps.AddChrome(chromeCaps)
+	var urlPrefix string
+	if conf.remoteBrowser != "" {
+		urlPrefix = conf.remoteBrowser
+	} else {
+		urlPrefix = fmt.Sprintf("http://localhost:%d/wd/hub", port)
+	}
+	wd, err := selenium.NewRemote(caps, urlPrefix)
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		_ = wd.Quit()
 	}()
 
 	if conf.dataHandler != nil {
@@ -188,9 +194,9 @@ func (c *crawler) Run(rawUrl string, options ...Option) (err error) {
 		}()
 	}
 
-	go c.exec(conf.ctx, conf, conf.webDriver)
-	go c.watchUrlChange(conf.webDriver)
-	err = conf.webDriver.Get(rawUrl)
+	go c.exec(conf.ctx, conf, wd)
+	go c.watchUrlChange(wd)
+	err = wd.Get(rawUrl)
 	if err != nil {
 		err = fmt.Errorf("request url: %s error: %s", rawUrl, err)
 		return
