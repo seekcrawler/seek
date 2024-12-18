@@ -23,6 +23,7 @@ type baseScroller struct {
 	scrollTopElem    func() string
 	scrollBottomElem func() (string, string)
 	scrollHeightElem func() string
+	ctx              *Context
 }
 
 func (s baseScroller) ScrollTop() error {

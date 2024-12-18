@@ -11,6 +11,7 @@ func newElement(wd selenium.WebDriver, elem selenium.WebElement, extractor *Extr
 		wd:   wd,
 		args: []any{elem},
 		wait: extractor.Wait,
+		ctx:  extractor.ctx,
 		scrollTopElem: func() string {
 			return "arguments[0]"
 		},
@@ -150,26 +151,32 @@ func (s baseScroller) AutoWheelScrollBottom(params AutoWheelScrollBottomParams) 
 	}
 	var y = int64(0)
 	for {
-		var h int64
-		h, err = s.ScrollHeight()
-		if err != nil {
+		select {
+		case <-s.ctx.Context.Done():
+			err = ContextCancelErr
 			return
-		}
-		h += params.PaddingHeight
-		y += params.RowHeight
-		err = s.WheelScrollY(params.RowHeight)
-		if err != nil {
-			return
-		}
-		if params.Handle != nil {
-			err = params.Handle()
+		default:
+			var h int64
+			h, err = s.ScrollHeight()
 			if err != nil {
 				return
 			}
+			h += params.PaddingHeight
+			y += params.RowHeight
+			err = s.WheelScrollY(params.RowHeight)
+			if err != nil {
+				return
+			}
+			if params.Handle != nil {
+				err = params.Handle()
+				if err != nil {
+					return
+				}
+			}
+			if y > h {
+				return
+			}
+			s.wait(params.RenderInterval)
 		}
-		if y > h {
-			return
-		}
-		s.wait(params.RenderInterval)
 	}
 }

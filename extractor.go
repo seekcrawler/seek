@@ -19,9 +19,9 @@ var (
 const minExtractorTimeout = 0
 
 var (
-	ElementNotFoundErr  = errors.New("element not found")
-	ExtractorStoppedErr = errors.New("extractor has stopped")
-	TimoutErr           = errors.New("timeout")
+	ElementNotFoundErr = errors.New("element not found")
+	TimoutErr          = errors.New("timeout")
+	ContextCancelErr   = errors.New("context cancel")
 )
 
 var (
@@ -157,6 +157,7 @@ func initExtractor(c *crawler, wd selenium.WebDriver, url url.URL, timeout time.
 			wd:   wd,
 			args: nil,
 			wait: extractor.Wait,
+			ctx:  extractor.ctx,
 			scrollTopElem: func() string {
 				return "window"
 			},
@@ -193,33 +194,34 @@ func (p *Extractor) findElements(parent iFindElements, by By, selector string, t
 		parent = p.wd
 	}
 	for {
-		//if p.hasEnd.Load() {
-		//	log.Infof("cancel find elements, by: %s selector: %s", by, selector)
-		//	return Elements{
-		//		err: ExtractorStoppedErr,
-		//	}
-		//}
-		results, err := parent.FindElements(string(by), selector)
-		if err == nil {
-			if len(results) > 0 {
-				log.Debugf("find elements success, by: %s selector: %s, count: %d", by, selector, len(results))
-				var elems []Element
-				for _, elem := range results {
-					elems = append(elems, newElement(p.wd, elem, p))
-				}
-				return Elements{
-					wd:    p.wd,
-					elems: elems,
-				}
-			}
-		}
-		if time.Since(start) > timeout {
-			log.Warnf("find elementos failed, by: %s selector: %s", by, selector)
+		select {
+		case <-p.ctx.Context.Done():
 			return Elements{
-				err: ElementNotFoundErr,
+				err: ContextCancelErr,
 			}
+		default:
+			results, err := parent.FindElements(string(by), selector)
+			if err == nil {
+				if len(results) > 0 {
+					log.Debugf("find elements success, by: %s selector: %s, count: %d", by, selector, len(results))
+					var elems []Element
+					for _, elem := range results {
+						elems = append(elems, newElement(p.wd, elem, p))
+					}
+					return Elements{
+						wd:    p.wd,
+						elems: elems,
+					}
+				}
+			}
+			if time.Since(start) > timeout {
+				log.Warnf("find elementos failed, by: %s selector: %s", by, selector)
+				return Elements{
+					err: ElementNotFoundErr,
+				}
+			}
+			time.Sleep(DefaultCheckElementInterval)
 		}
-		time.Sleep(DefaultCheckElementInterval)
 	}
 }
 
@@ -239,28 +241,29 @@ func (p *Extractor) findElement(parent iFindElement, by By, selector string, tim
 		parent = p.wd
 	}
 	for {
-		//if p.hasEnd.Load() {
-		//	//log.Infof("cancel find element, by: %s selector: %s", by, selector)
-		//	return Element{
-		//		err: ExtractorStoppedErr,
-		//	}
-		//}
-		elem, err := parent.FindElement(string(by), selector)
-		if err == nil {
-			var isDisplayed bool
-			isDisplayed, err = elem.IsDisplayed()
-			if err == nil && isDisplayed {
-				log.Debugf("find element success, by: %s selector: %s", by, selector)
-				return newElement(p.wd, elem, p)
-			}
-		}
-		if time.Since(start) > timeout {
-			log.Warnf("find element failed, by: %s selector: %s", by, selector)
+		select {
+		case <-p.ctx.Context.Done():
 			return Element{
-				err: ElementNotFoundErr,
+				err: ContextCancelErr,
 			}
+		default:
+			elem, err := parent.FindElement(string(by), selector)
+			if err == nil {
+				var isDisplayed bool
+				isDisplayed, err = elem.IsDisplayed()
+				if err == nil && isDisplayed {
+					log.Debugf("find element success, by: %s selector: %s", by, selector)
+					return newElement(p.wd, elem, p)
+				}
+			}
+			if time.Since(start) > timeout {
+				log.Warnf("find element failed, by: %s selector: %s", by, selector)
+				return Element{
+					err: ElementNotFoundErr,
+				}
+			}
+			time.Sleep(DefaultCheckElementInterval)
 		}
-		time.Sleep(DefaultCheckElementInterval)
 	}
 }
 
@@ -272,15 +275,21 @@ func (p *Extractor) GetCookie(name string, timeout ...time.Duration) (cookie sel
 	_timeout := fixTimeDuration(calcTimeDuration(timeout))
 	start := time.Now()
 	for {
-		cookie, err = p.wd.GetCookie(name)
-		if err == nil {
+		select {
+		case <-p.ctx.Context.Done():
+			err = ContextCancelErr
 			return
+		default:
+			cookie, err = p.wd.GetCookie(name)
+			if err == nil {
+				return
+			}
+			if time.Since(start) > _timeout {
+				err = TimoutErr
+				return
+			}
+			time.Sleep(DefaultCheckElementInterval)
 		}
-		if time.Since(start) > _timeout {
-			err = TimoutErr
-			return
-		}
-		time.Sleep(DefaultCheckElementInterval)
 	}
 }
 

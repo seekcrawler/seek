@@ -222,15 +222,19 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 				return
 			}
 
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithCancel(ctx)
 			kCtx := &Context{
 				URL:     *u,
 				Context: ctx,
 				Logger:  prepareLogger(ctx),
+				cancel:  cancel,
 			}
 			if conf.router == nil {
 				c.sendDone(fmt.Errorf("router is nil"))
 				return
 			}
+
 			err = conf.router.prepareContext(kCtx, c.extractor)
 			if err != nil && !errors.Is(err, handlerNotFoundErr) {
 				c.sendDone(fmt.Errorf("prepare router error: %w", err))
@@ -245,14 +249,16 @@ func (c *crawler) exec(ctx context.Context, conf *Conf, wd selenium.WebDriver) {
 					kCtx.handlers = append(kCtx.handlers, conf.router.defaultHandler)
 				}
 			}
-			err = c.extractor.Run(kCtx, conf.PreloadTime)
-			if err != nil {
-				c.sendDone(err)
-				return
-			}
+
+			go func() {
+				e := c.extractor.Run(kCtx, conf.PreloadTime)
+				if e != nil {
+					c.sendDone(e)
+					return
+				}
+			}()
 		}
 	}
-
 }
 
 func (c *crawler) currentUrl(wd selenium.WebDriver) string {
@@ -286,9 +292,9 @@ func (c *crawler) watchUrlChange(wd selenium.WebDriver) {
 				} else {
 					log.Infof("url changeed, previous: %s, now: %s", currentUrl, newUrl)
 				}
-				//if c.extractor != nil {
-				//	c.extractor.stop()
-				//}
+				if c.extractor != nil {
+					c.extractor.ctx.cancel()
+				}
 				c.visitUrl <- RawUrl(newUrl)
 				currentUrl = newUrl
 			}

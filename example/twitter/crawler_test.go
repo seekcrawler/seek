@@ -23,7 +23,7 @@ func TestCrawler(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func DefaultHandler(c *kraken.Context) {
+func DefaultHandler(c *kraken.Context) (err error) {
 	c.JustThink()
 	elems, err := c.FindElements(kraken.ByCSSSelector, `a[href="/elonmusk"]`).Valid()
 	if err != nil {
@@ -36,4 +36,5 @@ func DefaultHandler(c *kraken.Context) {
 		c.JustWait()
 		v.MouseOut()
 	}
+	return
 }

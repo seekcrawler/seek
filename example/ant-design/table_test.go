@@ -14,7 +14,7 @@ func TestScroll(t *testing.T) {
 
 	kraken.DriverPath = dp
 
-	router := kraken.NewRouter(func(c *kraken.Context) {
+	router := kraken.NewRouter(func(c *kraken.Context) (err error) {
 
 		elem, err := c.FindElement(kraken.ByCSSSelector, `.ant-table-tbody-virtual-holder`).Valid()
 		require.NoError(t, err)
@@ -30,6 +30,7 @@ func TestScroll(t *testing.T) {
 		if err != nil {
 			t.Log(err)
 		}
+		return
 	})
 
 	err = kraken.Request("https://ant-design.antgroup.com/components/table-cn#table-demo-virtual-list",

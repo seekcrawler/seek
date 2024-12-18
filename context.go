@@ -18,6 +18,8 @@ type Context struct {
 	Params   Params
 	handlers HandlersChain
 	index    int8
+	cancel   context.CancelFunc
+
 	//abort    func() bool
 }
 
