@@ -84,7 +84,17 @@ func (p Element) Click() error {
 }
 
 func (p Element) Href() (string, error) {
+	if p.err != nil {
+		return "", p.err
+	}
 	return p.elem.GetAttribute("href")
+}
+
+func (p Element) Attribute(name string) (string, error) {
+	if p.err != nil {
+		return "", p.err
+	}
+	return p.elem.GetAttribute(name)
 }
 
 func (p Element) MouseOver() (err error) {
