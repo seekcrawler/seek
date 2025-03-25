@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be found
 // at https://github.com/julienschmidt/httprouter/blob/master/LICENSE
 
-package kraken
+package seek
 
 import (
 	"bytes"
-	"github.com/krakenspider/kraken/bytesconv"
+	"github.com/seekcrawler/seek/bytesconv"
 	"net/url"
 	"strings"
 	"unicode"

@@ -3,7 +3,7 @@ package ant_design
 import (
 	"fmt"
 	"github.com/gozelle/fs"
-	"github.com/krakenspider/kraken"
+	"github.com/seekcrawler/seek"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -12,17 +12,17 @@ func TestScroll(t *testing.T) {
 	dp, err := fs.Lookupwd("./drivers/chromedriver_130_arm64")
 	require.NoError(t, err)
 
-	kraken.DriverPath = dp
+	seek.DriverPath = dp
 
-	router := kraken.NewRouter(func(c *kraken.Context) (err error) {
+	router := seek.NewRouter(func(c *seek.Context) (err error) {
 
-		elem, err := c.FindElement(kraken.ByCSSSelector, `.ant-table-tbody-virtual-holder`).Valid()
+		elem, err := c.FindElement(seek.ByCSSSelector, `.ant-table-tbody-virtual-holder`).Valid()
 		require.NoError(t, err)
 
 		fmt.Println("start to scroll")
 		fmt.Println(elem.ScrollHeight())
 
-		err = elem.AutoWheelScrollBottom(kraken.AutoWheelScrollBottomParams{
+		err = elem.AutoWheelScrollBottom(seek.AutoWheelScrollBottomParams{
 			PaddingHeight: 300,
 			RowHeight:     300,
 		})
@@ -33,8 +33,8 @@ func TestScroll(t *testing.T) {
 		return
 	})
 
-	err = kraken.Request("https://ant-design.antgroup.com/components/table-cn#table-demo-virtual-list",
-		kraken.WithChromeArgs([]string{
+	err = seek.Request("https://ant-design.antgroup.com/components/table-cn#table-demo-virtual-list",
+		seek.WithChromeArgs([]string{
 			//"--no-sandbox",
 			//"--headless",    // 无头模式运行
 			//"--disable-gpu", // 禁用 GPU
@@ -43,7 +43,7 @@ func TestScroll(t *testing.T) {
 			//"--high-dpi-support=1.0",        // 避免在Linux环境下出现错误，可选
 			//"--disable-dev-shm-usage",       // 避免在Linux环境下出现错误，可选
 		}),
-		kraken.WithRouter(router),
+		seek.WithRouter(router),
 	)
 
 	require.NoError(t, err)

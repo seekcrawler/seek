@@ -1,4 +1,4 @@
-# Kraken
+# Seek
 
 Golang web scraping framework.
 

@@ -3,7 +3,7 @@ package neteasy
 import (
 	"github.com/gozelle/fs"
 	"github.com/gozelle/logger"
-	"github.com/krakenspider/kraken"
+	"github.com/seekcrawler/seek"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -12,8 +12,8 @@ import (
 var log = logger.NewLogger("neteasy")
 
 func TestScroll(t *testing.T) {
-	Handler := func(c *kraken.Context) error {
-		return c.AutoScrollBottom(kraken.AutoScrollBottomParams{
+	Handler := func(c *seek.Context) error {
+		return c.AutoScrollBottom(seek.AutoScrollBottomParams{
 			RenderInterval: 3 * time.Second,
 			WaitInterval:   2 * time.Second,
 			Handler:        nil,
@@ -22,13 +22,13 @@ func TestScroll(t *testing.T) {
 	dp, err := fs.Lookupwd("./drivers/chromedriver_130_arm64")
 	require.NoError(t, err)
 
-	kraken.DriverPath = dp
+	seek.DriverPath = dp
 
-	router := kraken.NewRouter(Handler)
+	router := seek.NewRouter(Handler)
 
-	err = kraken.Request(
+	err = seek.Request(
 		"https://163.com",
-		kraken.WithChromeArgs([]string{
+		seek.WithChromeArgs([]string{
 			//"--no-sandbox",
 			//"--headless",    // 无头模式运行
 			//"--disable-gpu", // 禁用 GPU
@@ -37,15 +37,15 @@ func TestScroll(t *testing.T) {
 			//"--high-dpi-support=1.0",        // 避免在Linux环境下出现错误，可选
 			//"--disable-dev-shm-usage",       // 避免在Linux环境下出现错误，可选
 		}),
-		kraken.WithRouter(router),
+		seek.WithRouter(router),
 	)
 
 	require.NoError(t, err)
 }
 
 func TestWheelScroll(t *testing.T) {
-	Handler := func(c *kraken.Context) error {
-		e := c.AutoWheelScrollBottom(kraken.AutoWheelScrollBottomParams{
+	Handler := func(c *seek.Context) error {
+		e := c.AutoWheelScrollBottom(seek.AutoWheelScrollBottomParams{
 			RenderInterval: 3 * time.Second,
 		})
 		if e != nil {
@@ -56,13 +56,13 @@ func TestWheelScroll(t *testing.T) {
 	dp, err := fs.Lookupwd("./drivers/chromedriver_130_arm64")
 	require.NoError(t, err)
 
-	kraken.DriverPath = dp
+	seek.DriverPath = dp
 
-	router := kraken.NewRouter(Handler)
+	router := seek.NewRouter(Handler)
 
-	err = kraken.Request(
+	err = seek.Request(
 		"https://163.com",
-		kraken.WithChromeArgs([]string{
+		seek.WithChromeArgs([]string{
 			//"--no-sandbox",
 			//"--headless",    // 无头模式运行
 			//"--disable-gpu", // 禁用 GPU
@@ -71,7 +71,7 @@ func TestWheelScroll(t *testing.T) {
 			//"--high-dpi-support=1.0",        // 避免在Linux环境下出现错误，可选
 			//"--disable-dev-shm-usage",       // 避免在Linux环境下出现错误，可选
 		}),
-		kraken.WithRouter(router),
+		seek.WithRouter(router),
 	)
 
 	require.NoError(t, err)

@@ -1,4 +1,4 @@
-package kraken
+package seek
 
 import "github.com/tebeka/selenium"
 

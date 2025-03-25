@@ -1,4 +1,4 @@
-package kraken
+package seek
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var log = logger.NewLogger("crawler")
+var log = logger.NewLogger("seek")
 
 type RawUrl string
 
